@@ -17,4 +17,4 @@ path = "src/daemon.rs"
 
 [[bin]]
 name = "b2ghalctl"
-path = "src/client.rs"
+path = "src/ctl.rs"

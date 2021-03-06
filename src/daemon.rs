@@ -17,70 +17,80 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
     }
 
     loop {
-        if let Ok(message) = config.deserialize_from::<_, ToDaemon>(&stream) {
-            let sock_copy = stream.try_clone().expect("Couldn't clone socket");
+        match config.deserialize_from::<_, ToDaemon>(&stream) {
+            Ok(message) => {
+                let sock_copy = stream.try_clone().expect("Couldn't clone socket");
 
-            macro_rules! send {
-                ($payload:expr) => {
-                    let response = FromDaemon::new(message.id(), $payload);
-                    config
-                        .serialize_into(sock_copy, &response)
-                        .map_err(|_| Error::new(ErrorKind::Other, "bincode error"))?
-                };
-            }
+                macro_rules! send {
+                    ($payload:expr) => {
+                        let response = FromDaemon::new(message.id(), $payload);
+                        config
+                            .serialize_into(sock_copy, &response)
+                            .map_err(|_| Error::new(ErrorKind::Other, "bincode error"))?
+                    };
+                }
 
-            match message.request() {
-                Request::GetBrightness => {
-                    info!("GetBrightness #{}", message.id());
-                    let payload = match backlight {
-                        Ok(ref device) => Response::GetBrightnessSuccess(device.get_brightness()),
-                        Err(_) => Response::GetBrightnessError,
-                    };
-                    send!(payload);
-                }
-                Request::SetBrightness(value) => {
-                    info!("SetBrightness {} #{}", value, message.id());
-                    let payload = match backlight {
-                        Ok(ref device) => {
-                            device.set_brightness(*value);
-                            Response::SetBrightnessSuccess
-                        }
-                        Err(_) => Response::SetBrightnessError,
-                    };
-                    send!(payload);
-                }
-                Request::PowerOff => {
-                    let _ = reboot(RebootMode::RB_POWER_OFF);
-                    send!(Response::GenericSuccess);
-                }
-                Request::Reboot => {
-                    let _ = reboot(RebootMode::RB_AUTOBOOT);
-                    send!(Response::GenericSuccess);
-                }
-                Request::EnableScreen(value) => {
-                    let payload = match backlight {
-                        Ok(ref device) => {
-                            device.enable_screen(*value);
-                            Response::GenericSuccess
-                        }
-                        Err(_) => Response::GenericError,
-                    };
-                    send!(payload);
-                }
-                Request::DisableScreen(value) => {
-                    let payload = match backlight {
-                        Ok(ref device) => {
-                            device.disable_screen(*value);
-                            Response::GenericSuccess
-                        }
-                        Err(_) => Response::GenericError,
-                    };
-                    send!(payload);
+                match message.request() {
+                    Request::GetBrightness => {
+                        info!("GetBrightness #{}", message.id());
+                        let payload = match backlight {
+                            Ok(ref device) => {
+                                Response::GetBrightnessSuccess(device.get_brightness())
+                            }
+                            Err(_) => Response::GetBrightnessError,
+                        };
+                        send!(payload);
+                    }
+                    Request::SetBrightness(value) => {
+                        info!("SetBrightness {} #{}", value, message.id());
+                        let payload = match backlight {
+                            Ok(ref device) => {
+                                device.set_brightness(*value);
+                                Response::SetBrightnessSuccess
+                            }
+                            Err(_) => Response::SetBrightnessError,
+                        };
+                        send!(payload);
+                    }
+                    Request::PowerOff => {
+                        let _ = reboot(RebootMode::RB_POWER_OFF);
+                        send!(Response::GenericSuccess);
+                    }
+                    Request::Reboot => {
+                        let _ = reboot(RebootMode::RB_AUTOBOOT);
+                        send!(Response::GenericSuccess);
+                    }
+                    Request::EnableScreen(value) => {
+                        let payload = match backlight {
+                            Ok(ref device) => {
+                                device.enable_screen(*value);
+                                Response::GenericSuccess
+                            }
+                            Err(_) => Response::GenericError,
+                        };
+                        send!(payload);
+                    }
+                    Request::DisableScreen(value) => {
+                        let payload = match backlight {
+                            Ok(ref device) => {
+                                device.disable_screen(*value);
+                                Response::GenericSuccess
+                            }
+                            Err(_) => Response::GenericError,
+                        };
+                        send!(payload);
+                    }
                 }
             }
-        } else {
-            error!("Failed to deserialize messages.");
-            break;
+            Err(err) => {
+                match *err {
+                    bincode::ErrorKind::Io(io_err) => {
+                        info!("Client connection was closed: {}", io_err)
+                    }
+                    err => error!("Decoding error: {}", err),
+                }
+                break;
+            }
         }
     }
     Ok(())

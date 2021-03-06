@@ -10,7 +10,7 @@ pub enum Request {
     DisableScreen(u8),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Response {
     SetBrightnessSuccess,
     SetBrightnessError,
@@ -45,5 +45,9 @@ impl FromDaemon {
 
     pub fn response(&self) -> &Response {
         &self.1
+    }
+
+    pub fn id(&self) -> u64 {
+        self.0
     }
 }
