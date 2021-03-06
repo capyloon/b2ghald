@@ -75,7 +75,7 @@ pub struct SimpleClient {
 
 impl SimpleClient {
     pub fn new() -> Option<Self> {
-        match HalClient::connect("/tmp/b2ghald.sock") {
+        match HalClient::connect(crate::SOCKET_PATH) {
             Ok(client) => Some(Self { client }),
             Err(_) => None,
         }

@@ -3,6 +3,7 @@ use b2ghald::messages::*;
 use bincode::Options;
 use log::{error, info};
 use nix::sys::reboot::{reboot, RebootMode};
+use nix::sys::stat::{umask, Mode};
 use std::io::{Error, ErrorKind};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::thread;
@@ -99,8 +100,18 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
 fn main() -> std::io::Result<()> {
     env_logger::init();
 
-    let _ = std::fs::remove_file("/tmp/b2ghald.sock");
-    let listener = UnixListener::bind("/tmp/b2ghald.sock")?;
+    // Unix sockets inherits the permissions of the parent directory,
+    // so we create it as drwxrwxrwx
+    let mask = umask(Mode::empty());
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .create("/tmp/b2g")?;
+
+    let _ = std::fs::remove_file(b2ghald::SOCKET_PATH);
+    let listener = UnixListener::bind(b2ghald::SOCKET_PATH)?;
+
+    // Reset the umask for other operations in this process.
+    umask(mask);
 
     // accept connections and process them, spawning a new thread for each one
     for stream in listener.incoming() {
