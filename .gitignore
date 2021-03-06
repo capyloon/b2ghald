@@ -1,2 +1,4 @@
+.cargo
+env.txt
 /target
 Cargo.lock
