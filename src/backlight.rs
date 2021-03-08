@@ -43,7 +43,7 @@ impl Backlight {
     pub fn internal_set_screen_state(&self, screen_id: u8, enabled: bool) -> Result<(), Error> {
         let mut sysfs = OpenOptions::new()
             .write(true)
-            .open(format!("sys/class/graphics/fb{}/blank", screen_id))?;
+            .open(format!("/sys/class/graphics/fb{}/blank", screen_id))?;
         // DRM_MODE_DPMS_ON = 0
         // DRM_MODE_DPMS_OFF = 3
         sysfs.write_all(format!("{}", if enabled { 0 } else { 3 }).as_bytes())?;
