@@ -32,21 +32,27 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
                 }
 
                 match message.request() {
-                    Request::GetBrightness => {
+                    Request::GetBrightness(screen_id) => {
                         info!("GetBrightness #{}", message.id());
                         let payload = match backlight {
-                            Ok(ref device) => {
-                                Response::GetBrightnessSuccess(device.get_brightness())
-                            }
+                            Ok(ref device) => Response::GetBrightnessSuccess((
+                                *screen_id,
+                                device.get_brightness(*screen_id),
+                            )),
                             Err(_) => Response::GetBrightnessError,
                         };
                         send!(payload);
                     }
-                    Request::SetBrightness(value) => {
-                        info!("SetBrightness {} #{}", value, message.id());
+                    Request::SetBrightness((screen_id, level)) => {
+                        info!(
+                            "SetBrightness {} on screen {} #{}",
+                            level,
+                            screen_id,
+                            message.id()
+                        );
                         let payload = match backlight {
                             Ok(ref device) => {
-                                device.set_brightness(*value);
+                                device.set_brightness(*screen_id, *level);
                                 Response::SetBrightnessSuccess
                             }
                             Err(_) => Response::SetBrightnessError,

@@ -81,20 +81,22 @@ impl SimpleClient {
         }
     }
 
-    pub fn set_screen_brightness(&mut self, value: u8) {
+    pub fn set_screen_brightness(&mut self, screen_id: u8, value: u8) {
         let (sender, receiver) = channel();
-        let _ = self.client.send(Request::SetBrightness(value), sender);
+        let _ = self
+            .client
+            .send(Request::SetBrightness((screen_id, value)), sender);
         if self.client.get_next_message().is_ok() {
             let _ = receiver.recv();
         }
     }
 
-    pub fn get_screen_brightness(&mut self) -> u8 {
+    pub fn get_screen_brightness(&mut self, screen_id: u8) -> u8 {
         let (sender, receiver) = channel();
-        let _ = self.client.send(Request::GetBrightness, sender);
+        let _ = self.client.send(Request::GetBrightness(screen_id), sender);
         if self.client.get_next_message().is_ok() {
             match receiver.recv() {
-                Ok(Response::GetBrightnessSuccess(value)) => value,
+                Ok(Response::GetBrightnessSuccess(value)) => value.1,
                 Ok(_) | Err(_) => 0,
             }
         } else {

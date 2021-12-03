@@ -2,19 +2,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Request {
-    SetBrightness(u8),
-    GetBrightness,
+    SetBrightness((u8, u8)), // screen id, level.
+    GetBrightness(u8),       // screen id.
     PowerOff,
     Reboot,
-    EnableScreen(u8),
-    DisableScreen(u8),
+    EnableScreen(u8),  // screen id.
+    DisableScreen(u8), // screen id.
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum Response {
     SetBrightnessSuccess,
     SetBrightnessError,
-    GetBrightnessSuccess(u8),
+    GetBrightnessSuccess((u8, u8)), // screen id, level.
     GetBrightnessError,
     GenericSuccess,
     GenericError,
