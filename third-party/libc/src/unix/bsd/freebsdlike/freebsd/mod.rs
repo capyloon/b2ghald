@@ -41,6 +41,9 @@ pub type caddr_t = *mut ::c_char;
 
 pub type fhandle_t = fhandle;
 
+pub type au_id_t = ::uid_t;
+pub type au_asid_t = ::pid_t;
+
 // It's an alias over "struct __kvm_t". However, its fields aren't supposed to be used directly,
 // making the type definition system dependent. Better not bind it exactly.
 pub type kvm_t = ::c_void;
@@ -600,6 +603,11 @@ s! {
         pub mode: u16,
     }
 
+    pub struct spacectl_range {
+        pub r_offset: ::off_t,
+        pub r_len: ::off_t
+    }
+
     pub struct rusage_ext {
         pub rux_runtime: u64,
         pub rux_uticks: u64,
@@ -955,6 +963,29 @@ s! {
         pub sc_ngroups: ::c_int,
         pub sc_groups: [::gid_t; 1],
     }
+
+    pub struct ifconf {
+        pub ifc_len: ::c_int,
+        #[cfg(libc_union)]
+        pub ifc_ifcu: __c_anonymous_ifc_ifcu,
+    }
+
+    pub struct au_mask_t {
+        pub am_success: ::c_uint,
+        pub am_failure: ::c_uint,
+    }
+
+    pub struct au_tid_t {
+        pub port: u32,
+        pub machine: u32,
+    }
+
+    pub struct auditinfo_t {
+        pub ai_auid: ::au_id_t,
+        pub ai_mask: ::au_mask_t,
+        pub ai_termid: au_tid_t,
+        pub ai_asid: ::au_asid_t,
+    }
 }
 
 s_no_extra_traits! {
@@ -1135,6 +1166,12 @@ s_no_extra_traits! {
         pub ifr_ifru: __c_anonymous_ifr_ifru,
         #[cfg(not(libc_union))]
         pub ifr_ifru: ::sockaddr,
+    }
+
+    #[cfg(libc_union)]
+    pub union __c_anonymous_ifc_ifcu {
+        pub ifcu_buf: ::caddr_t,
+        pub ifcu_req: *mut ifreq,
     }
 
     pub struct ifstat {
@@ -1541,6 +1578,37 @@ cfg_if! {
             fn hash<H: ::hash::Hasher>(&self, state: &mut H) {
                 self.ifr_name.hash(state);
                 self.ifr_ifru.hash(state);
+            }
+        }
+
+        #[cfg(libc_union)]
+        impl Eq for __c_anonymous_ifc_ifcu {}
+
+        #[cfg(libc_union)]
+        impl PartialEq for __c_anonymous_ifc_ifcu {
+            fn eq(&self, other: &__c_anonymous_ifc_ifcu) -> bool {
+                unsafe {
+                    self.ifcu_buf == other.ifcu_buf &&
+                    self.ifcu_req == other.ifcu_req
+                }
+            }
+        }
+
+        #[cfg(libc_union)]
+        impl ::fmt::Debug for __c_anonymous_ifc_ifcu {
+            fn fmt(&self, f: &mut ::fmt::Formatter) -> ::fmt::Result {
+                f.debug_struct("ifc_ifcu")
+                    .field("ifcu_buf", unsafe { &self.ifcu_buf })
+                    .field("ifcu_req", unsafe { &self.ifcu_req })
+                    .finish()
+            }
+        }
+
+        #[cfg(libc_union)]
+        impl ::hash::Hash for __c_anonymous_ifc_ifcu {
+            fn hash<H: ::hash::Hasher>(&self, state: &mut H) {
+                unsafe { self.ifcu_buf.hash(state) };
+                unsafe { self.ifcu_req.hash(state) };
             }
         }
 
@@ -2056,7 +2124,6 @@ pub const KERN_IOV_MAX: ::c_int = 35;
 pub const KERN_HOSTUUID: ::c_int = 36;
 pub const KERN_ARND: ::c_int = 37;
 pub const KERN_MAXPHYS: ::c_int = 38;
-pub const KERN_STACKTOP: ::c_int = 39;
 
 pub const KERN_PROC_ALL: ::c_int = 0;
 pub const KERN_PROC_PID: ::c_int = 1;
@@ -2979,6 +3046,9 @@ pub const F_SEAL_SEAL: ::c_int = 1;
 pub const F_SEAL_SHRINK: ::c_int = 2;
 pub const F_SEAL_WRITE: ::c_int = 8;
 
+// for use with fspacectl
+pub const SPACECTL_DEALLOC: ::c_int = 1;
+
 // For getrandom()
 pub const GRND_NONBLOCK: ::c_uint = 0x1;
 pub const GRND_RANDOM: ::c_uint = 0x2;
@@ -3498,63 +3568,6 @@ pub const MNT_RECURSE: u64 = 0x100000000000;
 /// Unmount in async context.
 pub const MNT_DEFERRED: u64 = 0x200000000000;
 
-/// Forced unmount in progress.
-pub const MNTK_UNMOUNTF: u32 = 0x00000001;
-/// Filtered async flag.
-pub const MNTK_ASYNC: u32 = 0x00000002;
-/// Async disabled by softdep.
-pub const MNTK_SOFTDEP: u32 = 0x00000004;
-/// Don't do msync.
-pub const MNTK_NOMSYNC: u32 = 0x00000008;
-/// Lock draining is happening.
-pub const MNTK_DRAINING: u32 = 0x00000010;
-/// Refcount expiring is happening.
-pub const MNTK_REFEXPIRE: u32 = 0x00000020;
-/// Allow shared locking for more ops.
-pub const MNTK_EXTENDED_SHARED: u32 = 0x00000040;
-/// Allow shared locking for writes.
-pub const MNTK_SHARED_WRITES: u32 = 0x00000080;
-/// Disallow page faults during reads and writes. Filesystem shall properly handle i/o
-/// state on EFAULT.
-pub const MNTK_NO_IOPF: u32 = 0x00000100;
-/// Pending recursive unmount.
-pub const MNTK_RECURSE: u32 = 0x00000200;
-/// Waiting to drain MNTK_UPPER_PENDING.
-pub const MNTK_UPPER_WAITER: u32 = 0x00000400;
-pub const MNTK_LOOKUP_EXCL_DOTDOT: u32 = 0x00000800;
-pub const MNTK_UNMAPPED_BUFS: u32 = 0x00002000;
-/// FS uses the buffer cache.
-pub const MNTK_USES_BCACHE: u32 = 0x00004000;
-/// Keep use ref for text.
-pub const MNTK_TEXT_REFS: u32 = 0x00008000;
-pub const MNTK_VMSETSIZE_BUG: u32 = 0x00010000;
-/// A hack for F_ISUNIONSTACK.
-pub const MNTK_UNIONFS: u32 = 0x00020000;
-/// fast path lookup is supported.
-pub const MNTK_FPLOOKUP: u32 = 0x00040000;
-/// Suspended by all-fs suspension.
-pub const MNTK_SUSPEND_ALL: u32 = 0x00080000;
-/// Waiting on unmount taskqueue.
-pub const MNTK_TASKQUEUE_WAITER: u32 = 0x00100000;
-/// Disable async.
-pub const MNTK_NOASYNC: u32 = 0x00800000;
-/// Unmount in progress.
-pub const MNTK_UNMOUNT: u32 = 0x01000000;
-/// Waiting for unmount to finish.
-pub const MNTK_MWAIT: u32 = 0x02000000;
-/// Request write suspension.
-pub const MNTK_SUSPEND: u32 = 0x08000000;
-/// Block secondary writes.
-pub const MNTK_SUSPEND2: u32 = 0x04000000;
-/// Write operations are suspended.
-pub const MNTK_SUSPENDED: u32 = 0x10000000;
-/// auto disable cache for nullfs mounts over this fs.
-pub const MNTK_NULL_NOCACHE: u32 = 0x20000000;
-/// FS supports shared lock lookups.
-pub const MNTK_LOOKUP_SHARED: u32 = 0x40000000;
-/// Don't send KNOTEs from VOP hooks.
-pub const MNTK_NOKNOTE: u32 = 0x80000000;
-
 /// Get configured filesystems.
 pub const VFS_VFSCONF: ::c_int = 0;
 /// Generic filesystem information.
@@ -3619,6 +3632,9 @@ pub const MFD_CLOEXEC: ::c_uint = 0x00000001;
 pub const MFD_ALLOW_SEALING: ::c_uint = 0x00000002;
 pub const MFD_HUGETLB: ::c_uint = 0x00000004;
 
+pub const SHM_LARGEPAGE_ALLOC_DEFAULT: ::c_int = 0;
+pub const SHM_LARGEPAGE_ALLOC_NOWAIT: ::c_int = 1;
+pub const SHM_LARGEPAGE_ALLOC_HARD: ::c_int = 2;
 pub const SHM_RENAME_NOREPLACE: ::c_int = 1 << 0;
 pub const SHM_RENAME_EXCHANGE: ::c_int = 1 << 1;
 
@@ -3862,6 +3878,14 @@ extern "C" {
         data: *const ::c_void,
         nbytes: ::size_t,
     ) -> ::ssize_t;
+
+    pub fn fspacectl(
+        fd: ::c_int,
+        cmd: ::c_int,
+        rqsr: *const spacectl_range,
+        flags: ::c_int,
+        rmsr: *mut spacectl_range,
+    ) -> ::c_int;
 
     pub fn jail(jail: *mut ::jail) -> ::c_int;
     pub fn jail_attach(jid: ::c_int) -> ::c_int;
@@ -4159,16 +4183,25 @@ extern "C" {
     pub fn procctl(idtype: ::idtype_t, id: ::id_t, cmd: ::c_int, data: *mut ::c_void) -> ::c_int;
 
     pub fn getpagesize() -> ::c_int;
+    pub fn getpagesizes(pagesize: *mut ::size_t, nelem: ::c_int) -> ::c_int;
 
     pub fn adjtime(arg1: *const ::timeval, arg2: *mut ::timeval) -> ::c_int;
     pub fn clock_getcpuclockid2(arg1: ::id_t, arg2: ::c_int, arg3: *mut clockid_t) -> ::c_int;
 
+    pub fn shm_create_largepage(
+        path: *const ::c_char,
+        flags: ::c_int,
+        psind: ::c_int,
+        alloc_policy: ::c_int,
+        mode: ::mode_t,
+    ) -> ::c_int;
     pub fn shm_rename(
         path_from: *const ::c_char,
         path_to: *const ::c_char,
         flags: ::c_int,
     ) -> ::c_int;
     pub fn memfd_create(name: *const ::c_char, flags: ::c_uint) -> ::c_int;
+    pub fn setaudit(auditinfo: *const auditinfo_t) -> ::c_int;
 }
 
 #[link(name = "kvm")]

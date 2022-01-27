@@ -73,12 +73,6 @@ s! {
         pub cmsg_type: ::c_int,
     }
 
-    pub struct ip_mreqn {
-        pub imr_multiaddr: ::in_addr,
-        pub imr_address: ::in_addr,
-        pub imr_ifindex: ::c_int,
-    }
-
     pub struct termios {
         pub c_iflag: ::tcflag_t,
         pub c_oflag: ::tcflag_t,
@@ -1269,33 +1263,6 @@ pub const TOSTOP: ::tcflag_t = 0x00000100;
 pub const FLUSHO: ::tcflag_t = 0x00001000;
 pub const EXTPROC: ::tcflag_t = 0o200000;
 
-pub const ADFS_SUPER_MAGIC: ::c_long = 0x0000adf5;
-pub const AFFS_SUPER_MAGIC: ::c_long = 0x0000adff;
-pub const CODA_SUPER_MAGIC: ::c_long = 0x73757245;
-pub const CRAMFS_MAGIC: ::c_long = 0x28cd3d45;
-pub const EFS_SUPER_MAGIC: ::c_long = 0x00414a53;
-pub const EXT2_SUPER_MAGIC: ::c_long = 0x0000ef53;
-pub const EXT3_SUPER_MAGIC: ::c_long = 0x0000ef53;
-pub const EXT4_SUPER_MAGIC: ::c_long = 0x0000ef53;
-pub const HPFS_SUPER_MAGIC: ::c_long = 0xf995e849;
-pub const HUGETLBFS_MAGIC: ::c_long = 0x958458f6;
-pub const ISOFS_SUPER_MAGIC: ::c_long = 0x00009660;
-pub const JFFS2_SUPER_MAGIC: ::c_long = 0x000072b6;
-pub const MINIX_SUPER_MAGIC: ::c_long = 0x0000137f;
-pub const MINIX_SUPER_MAGIC2: ::c_long = 0x0000138f;
-pub const MINIX2_SUPER_MAGIC: ::c_long = 0x00002468;
-pub const MINIX2_SUPER_MAGIC2: ::c_long = 0x00002478;
-pub const MSDOS_SUPER_MAGIC: ::c_long = 0x00004d44;
-pub const NCP_SUPER_MAGIC: ::c_long = 0x0000564c;
-pub const NFS_SUPER_MAGIC: ::c_long = 0x00006969;
-pub const OPENPROM_SUPER_MAGIC: ::c_long = 0x00009fa1;
-pub const PROC_SUPER_MAGIC: ::c_long = 0x00009fa0;
-pub const QNX4_SUPER_MAGIC: ::c_long = 0x0000002f;
-pub const REISERFS_SUPER_MAGIC: ::c_long = 0x52654973;
-pub const SMB_SUPER_MAGIC: ::c_long = 0x0000517b;
-pub const TMPFS_MAGIC: ::c_long = 0x01021994;
-pub const USBDEVICE_SUPER_MAGIC: ::c_long = 0x00009fa2;
-
 pub const MAP_HUGETLB: ::c_int = 0x040000;
 
 pub const PTRACE_TRACEME: ::c_int = 0;
@@ -1893,6 +1860,20 @@ pub const O_TMPFILE: ::c_int = 0o20000000 | O_DIRECTORY;
 pub const MFD_CLOEXEC: ::c_uint = 0x0001;
 pub const MFD_ALLOW_SEALING: ::c_uint = 0x0002;
 pub const MFD_HUGETLB: ::c_uint = 0x0004;
+pub const MFD_HUGE_64KB: ::c_uint = 0x40000000;
+pub const MFD_HUGE_512KB: ::c_uint = 0x4c000000;
+pub const MFD_HUGE_1MB: ::c_uint = 0x50000000;
+pub const MFD_HUGE_2MB: ::c_uint = 0x54000000;
+pub const MFD_HUGE_8MB: ::c_uint = 0x5c000000;
+pub const MFD_HUGE_16MB: ::c_uint = 0x60000000;
+pub const MFD_HUGE_32MB: ::c_uint = 0x64000000;
+pub const MFD_HUGE_256MB: ::c_uint = 0x70000000;
+pub const MFD_HUGE_512MB: ::c_uint = 0x74000000;
+pub const MFD_HUGE_1GB: ::c_uint = 0x78000000;
+pub const MFD_HUGE_2GB: ::c_uint = 0x7c000000;
+pub const MFD_HUGE_16GB: ::c_uint = 0x88000000;
+pub const MFD_HUGE_MASK: ::c_uint = 63;
+pub const MFD_HUGE_SHIFT: ::c_uint = 26;
 
 // these are used in the p_type field of Elf32_Phdr and Elf64_Phdr, which has
 // the type Elf32Word and Elf64Word respectively. Luckily, both of those are u32
