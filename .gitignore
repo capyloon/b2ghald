@@ -1,3 +1,6 @@
 env.txt
 /target
 Cargo.lock
+/prebuilts
+b2ghald-*.tar.xz
+
