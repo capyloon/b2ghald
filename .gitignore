@@ -3,4 +3,4 @@ env.txt
 Cargo.lock
 /prebuilts
 b2ghald-*.tar.xz
-
+!third-party/**/Cargo.lock
