@@ -33,6 +33,11 @@ enum Command {
     Reboot {},
     /// Powers off the device.
     PowerOff {},
+    /// Get or set the timezone.
+    Timezone {
+        /// If set, change the timezone.
+        tz: Option<String>,
+    },
 }
 
 fn check_flashlight(client: &mut SimpleClient, path: &str) -> bool {
@@ -74,6 +79,16 @@ fn main() {
         Command::DisableFlashlight { path } => {
             if check_flashlight(&mut client, path) {
                 client.disable_flashlight(path);
+            }
+        }
+        Command::Timezone { tz } => {
+            if let Some(value) = tz {
+                client.set_timezone(value);
+            } else {
+                println!(
+                    "Current timezone: {}",
+                    client.get_timezone().unwrap_or_else(|| "<not set>".into())
+                );
             }
         }
     }

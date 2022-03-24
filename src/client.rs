@@ -186,4 +186,27 @@ impl SimpleClient {
             false
         }
     }
+
+    pub fn set_timezone(&mut self, tz: &str) {
+        let (sender, receiver) = channel();
+        let _ = self
+            .client
+            .send(Request::SetTimezone(tz.to_owned()), sender);
+        if self.client.get_next_message().is_ok() {
+            let _ = receiver.recv();
+        }
+    }
+
+    pub fn get_timezone(&mut self) -> Option<String> {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::GetTimezone, sender);
+        if self.client.get_next_message().is_ok() {
+            match receiver.recv() {
+                Ok(Response::GetTimezone(value)) => Some(value),
+                Ok(_) | Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
 }
