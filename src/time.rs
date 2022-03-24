@@ -1,7 +1,15 @@
+use nix::sys::time::TimeSpec;
 /// Timezone & clock functions.
+use nix::time::{clock_gettime, clock_settime, ClockId};
 use std::process::Command;
+use std::time::Duration;
 
 pub enum TimezoneError {
+    SetError,
+    GetError,
+}
+
+pub enum SystemClockError {
     SetError,
     GetError,
 }
@@ -36,5 +44,29 @@ impl Timezone {
         }
 
         Err(TimezoneError::GetError)
+    }
+}
+
+pub struct SystemClock {}
+
+fn get_clock_id_ms(clock: ClockId) -> i64 {
+    match clock_gettime(clock) {
+        Ok(time) => time.tv_nsec() / 1_000_000 + time.tv_sec() * 1000,
+        Err(_) => 0,
+    }
+}
+
+impl SystemClock {
+    pub fn set_time(ms: i64) -> Result<(), SystemClockError> {
+        let time_spec = TimeSpec::from_duration(Duration::from_millis(ms as _));
+        clock_settime(ClockId::CLOCK_REALTIME, time_spec).map_err(|_| SystemClockError::SetError)
+    }
+
+    pub fn get_time() -> i64 {
+        get_clock_id_ms(ClockId::CLOCK_REALTIME)
+    }
+
+    pub fn get_uptime() -> i64 {
+        get_clock_id_ms(ClockId::CLOCK_BOOTTIME)
     }
 }

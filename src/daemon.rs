@@ -1,6 +1,6 @@
 use b2ghald::backlight::Backlight;
 use b2ghald::messages::*;
-use b2ghald::time::Timezone;
+use b2ghald::time::{SystemClock, Timezone};
 use bincode::Options;
 use log::{debug, error, info};
 use nix::sys::reboot::{reboot, RebootMode};
@@ -140,6 +140,20 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
                             Err(_) => Response::GenericError,
                         };
                         send!(payload);
+                    }
+                    Request::SetSystemClock(ms) => {
+                        let payload = if SystemClock::set_time(*ms).is_ok() {
+                            Response::GenericSuccess
+                        } else {
+                            Response::GenericError
+                        };
+                        send!(payload);
+                    }
+                    Request::GetSystemClock => {
+                        send!(Response::GetSystemClock(SystemClock::get_time()));
+                    }
+                    Request::GetUptime => {
+                        send!(Response::GetUptime(SystemClock::get_uptime()));
                     }
                 }
             }

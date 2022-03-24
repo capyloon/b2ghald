@@ -209,4 +209,38 @@ impl SimpleClient {
             None
         }
     }
+
+    pub fn get_uptime(&mut self) -> i64 {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::GetUptime, sender);
+        if self.client.get_next_message().is_ok() {
+            match receiver.recv() {
+                Ok(Response::GetUptime(value)) => value,
+                Ok(_) | Err(_) => 0,
+            }
+        } else {
+            0
+        }
+    }
+
+    pub fn set_system_time(&mut self, ms: i64) {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::SetSystemClock(ms), sender);
+        if self.client.get_next_message().is_ok() {
+            let _ = receiver.recv();
+        }
+    }
+
+    pub fn get_system_time(&mut self) -> i64 {
+        let (sender, receiver) = channel();
+        let _ = self.client.send(Request::GetSystemClock, sender);
+        if self.client.get_next_message().is_ok() {
+            match receiver.recv() {
+                Ok(Response::GetSystemClock(value)) => value,
+                Ok(_) | Err(_) => 0,
+            }
+        } else {
+            0
+        }
+    }
 }

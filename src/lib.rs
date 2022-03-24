@@ -1,5 +1,6 @@
 pub mod backlight;
 pub mod client;
+pub mod humantime;
 pub mod messages;
 pub mod time;
 

@@ -1,4 +1,5 @@
 use b2ghald::client::SimpleClient;
+use b2ghald::humantime::FormattedDuration;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -38,6 +39,8 @@ enum Command {
         /// If set, change the timezone.
         tz: Option<String>,
     },
+    /// Get the device uptime
+    Uptime,
 }
 
 fn check_flashlight(client: &mut SimpleClient, path: &str) -> bool {
@@ -90,6 +93,14 @@ fn main() {
                     client.get_timezone().unwrap_or_else(|| "<not set>".into())
                 );
             }
+        }
+        Command::Uptime => {
+            let uptime = client.get_uptime();
+            println!(
+                "Current uptime: {} ({}ms)",
+                FormattedDuration::from_millis(uptime),
+                client.get_uptime()
+            );
         }
     }
 }
