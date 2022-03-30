@@ -28,6 +28,23 @@ fn flash_helper(path: &str, enabled: bool) -> Response {
     Response::GenericError
 }
 
+fn restart_service(service: &str) -> Result<(), Error> {
+    match std::process::Command::new("systemctl")
+        .arg("restart")
+        .arg(service)
+        .status()
+    {
+        Ok(exit) => {
+            if exit.code() == Some(0) {
+                Ok(())
+            } else {
+                Err(Error::new(ErrorKind::Other, "systemctl error"))
+            }
+        }
+        Err(err) => Err(err),
+    }
+}
+
 // Manages a session with a client.
 fn handle_client(stream: UnixStream) -> Result<(), Error> {
     let config = bincode::DefaultOptions::new().with_native_endian();
@@ -154,6 +171,14 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
                     }
                     Request::GetUptime => {
                         send!(Response::GetUptime(SystemClock::get_uptime()));
+                    }
+                    Request::RestartService(service) => {
+                        let payload = if restart_service(service).is_ok() {
+                            Response::GenericSuccess
+                        } else {
+                            Response::GenericError
+                        };
+                        send!(payload);
                     }
                 }
             }
