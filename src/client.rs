@@ -243,4 +243,14 @@ impl SimpleClient {
             0
         }
     }
+
+    pub fn restart_service(&mut self, service: &str) {
+        let (sender, receiver) = channel();
+        let _ = self
+            .client
+            .send(Request::RestartService(service.to_owned()), sender);
+        if self.client.get_next_message().is_ok() {
+            let _ = receiver.recv();
+        }
+    }
 }

@@ -41,6 +41,11 @@ enum Command {
     },
     /// Get the device uptime
     Uptime,
+    /// Restart a systemctl service
+    RestartService {
+        /// The service name
+        service: String,
+    },
 }
 
 fn check_flashlight(client: &mut SimpleClient, path: &str) -> bool {
@@ -101,6 +106,9 @@ fn main() {
                 FormattedDuration::from_millis(uptime),
                 client.get_uptime()
             );
+        }
+        Command::RestartService { service } => {
+            client.restart_service(&service);
         }
     }
 }
