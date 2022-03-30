@@ -28,9 +28,9 @@ fn flash_helper(path: &str, enabled: bool) -> Response {
     Response::GenericError
 }
 
-fn restart_service(service: &str) -> Result<(), Error> {
+fn control_service(command: &str, service: &str) -> Result<(), Error> {
     match std::process::Command::new("systemctl")
-        .arg("restart")
+        .arg(command)
         .arg(service)
         .status()
     {
@@ -172,8 +172,8 @@ fn handle_client(stream: UnixStream) -> Result<(), Error> {
                     Request::GetUptime => {
                         send!(Response::GetUptime(SystemClock::get_uptime()));
                     }
-                    Request::RestartService(service) => {
-                        let payload = if restart_service(service).is_ok() {
+                    Request::ControlService(command, service) => {
+                        let payload = if control_service(command, service).is_ok() {
                             Response::GenericSuccess
                         } else {
                             Response::GenericError

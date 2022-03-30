@@ -17,7 +17,7 @@ pub enum Request {
     SetSystemClock(i64), // The time since EPOCH in ms
     GetSystemClock,
     GetUptime,
-    RestartService(String), // The name of the systemctl service to restart
+    ControlService(String, String), // The command and name of the systemctl service to restart
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

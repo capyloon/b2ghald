@@ -46,6 +46,16 @@ enum Command {
         /// The service name
         service: String,
     },
+    /// Stop a systemctl service
+    StopService {
+        /// The service name
+        service: String,
+    },
+    /// Start a systemctl service
+    StartService {
+        /// The service name
+        service: String,
+    },
 }
 
 fn check_flashlight(client: &mut SimpleClient, path: &str) -> bool {
@@ -108,7 +118,13 @@ fn main() {
             );
         }
         Command::RestartService { service } => {
-            client.restart_service(&service);
+            client.control_service("restart", &service);
+        }
+        Command::StartService { service } => {
+            client.control_service("start", &service);
+        }
+        Command::StopService { service } => {
+            client.control_service("stop", &service);
         }
     }
 }
