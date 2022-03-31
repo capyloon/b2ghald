@@ -56,6 +56,11 @@ enum Command {
         /// The service name
         service: String,
     },
+    /// Set the device time.
+    SetTime {
+        /// Milliseconds since epoch.
+        ms: i64,
+    },
 }
 
 fn check_flashlight(client: &mut SimpleClient, path: &str) -> bool {
@@ -125,6 +130,9 @@ fn main() {
         }
         Command::StopService { service } => {
             client.control_service("stop", &service);
+        }
+        Command::SetTime { ms } => {
+            client.set_system_time(*ms);
         }
     }
 }
