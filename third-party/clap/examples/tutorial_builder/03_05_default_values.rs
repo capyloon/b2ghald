@@ -1,16 +1,14 @@
-// Note: this requires the `cargo` feature
-
 use clap::{arg, command};
 
 fn main() {
-    let matches = command!()
+    let matches = command!() // requires `cargo` feature
         .arg(arg!([NAME]).default_value("alice"))
         .get_matches();
 
     println!(
         "NAME: {:?}",
         matches
-            .value_of("NAME")
+            .get_one::<String>("NAME")
             .expect("default ensures there is always a value")
     );
 }

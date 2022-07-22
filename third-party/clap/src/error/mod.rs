@@ -12,13 +12,12 @@ use std::{
 };
 
 // Internal
-use crate::{
-    build::Arg,
-    output::fmt::Colorizer,
-    parse::features::suggestions,
-    util::{color::ColorChoice, safe_exit, SUCCESS_CODE, USAGE_CODE},
-    AppSettings, Command,
-};
+use crate::output::fmt::Colorizer;
+use crate::output::fmt::Stream;
+use crate::parser::features::suggestions;
+use crate::util::{color::ColorChoice, safe_exit, SUCCESS_CODE, USAGE_CODE};
+use crate::AppSettings;
+use crate::Command;
 
 mod context;
 mod kind;
@@ -41,10 +40,16 @@ pub type Result<T, E = Error> = StdResult<T, E>;
 pub struct Error {
     inner: Box<ErrorInner>,
     /// Deprecated, replaced with [`Error::kind()`]
-    #[deprecated(since = "3.1.0", note = "Replaced with `Error::kind()`")]
+    #[cfg_attr(
+        feature = "deprecated",
+        deprecated(since = "3.1.0", note = "Replaced with `Error::kind()`")
+    )]
     pub kind: ErrorKind,
     /// Deprecated, replaced with [`Error::context()`]
-    #[deprecated(since = "3.1.0", note = "Replaced with `Error::context()`")]
+    #[cfg_attr(
+        feature = "deprecated",
+        deprecated(since = "3.1.0", note = "Replaced with `Error::context()`")
+    )]
     pub info: Vec<String>,
 }
 
@@ -76,7 +81,7 @@ impl Error {
     /// Format the existing message with the Command's context
     #[must_use]
     pub fn format(mut self, cmd: &mut Command) -> Self {
-        cmd._build();
+        cmd._build_self();
         let usage = cmd.render_usage();
         if let Some(message) = self.inner.message.as_mut() {
             message.format(cmd, usage);
@@ -97,10 +102,14 @@ impl Error {
     /// Should the message be written to `stdout` or not?
     #[inline]
     pub fn use_stderr(&self) -> bool {
-        !matches!(
-            self.kind(),
-            ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
-        )
+        self.stream() == Stream::Stderr
+    }
+
+    pub(crate) fn stream(&self) -> Stream {
+        match self.kind() {
+            ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => Stream::Stdout,
+            _ => Stream::Stderr,
+        }
     }
 
     /// Prints the error and exits.
@@ -150,7 +159,10 @@ impl Error {
     /// Deprecated, replaced with [`Command::error`]
     ///
     /// [`Command::error`]: crate::Command::error
-    #[deprecated(since = "3.0.0", note = "Replaced with `Command::error`")]
+    #[cfg_attr(
+        feature = "deprecated",
+        deprecated(since = "3.0.0", note = "Replaced with `Command::error`")
+    )]
     #[doc(hidden)]
     pub fn with_description(description: String, kind: ErrorKind) -> Self {
         Error::raw(kind, description)
@@ -265,7 +277,7 @@ impl Error {
 
     pub(crate) fn argument_conflict(
         cmd: &Command,
-        arg: &Arg,
+        arg: String,
         mut others: Vec<String>,
         usage: String,
     ) -> Self {
@@ -279,27 +291,18 @@ impl Error {
             .with_cmd(cmd)
             .set_info(info)
             .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
+                (ContextKind::InvalidArg, ContextValue::String(arg)),
                 (ContextKind::PriorArg, others),
                 (ContextKind::Usage, ContextValue::String(usage)),
             ])
     }
 
-    pub(crate) fn empty_value(cmd: &Command, good_vals: &[&str], arg: &Arg, usage: String) -> Self {
-        let info = vec![arg.to_string()];
+    pub(crate) fn empty_value(cmd: &Command, good_vals: &[&str], arg: String) -> Self {
+        let info = vec![arg.clone()];
         let mut err = Self::new(ErrorKind::EmptyValue)
             .with_cmd(cmd)
             .set_info(info)
-            .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
-                (ContextKind::Usage, ContextValue::String(usage)),
-            ]);
+            .extend_context_unchecked([(ContextKind::InvalidArg, ContextValue::String(arg))]);
         if !good_vals.is_empty() {
             err = err.insert_context_unchecked(
                 ContextKind::ValidValue,
@@ -310,7 +313,7 @@ impl Error {
     }
 
     pub(crate) fn no_equals(cmd: &Command, arg: String, usage: String) -> Self {
-        let info = vec![arg.to_string()];
+        let info = vec![arg.clone()];
         Self::new(ErrorKind::NoEquals)
             .with_cmd(cmd)
             .set_info(info)
@@ -324,10 +327,9 @@ impl Error {
         cmd: &Command,
         bad_val: String,
         good_vals: &[&str],
-        arg: &Arg,
-        usage: String,
+        arg: String,
     ) -> Self {
-        let mut info = vec![arg.to_string(), bad_val.clone()];
+        let mut info = vec![arg.clone(), bad_val.clone()];
         info.extend(good_vals.iter().map(|s| (*s).to_owned()));
 
         let suggestion = suggestions::did_you_mean(&bad_val, good_vals.iter()).pop();
@@ -335,16 +337,12 @@ impl Error {
             .with_cmd(cmd)
             .set_info(info)
             .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
+                (ContextKind::InvalidArg, ContextValue::String(arg)),
                 (ContextKind::InvalidValue, ContextValue::String(bad_val)),
                 (
                     ContextKind::ValidValue,
                     ContextValue::Strings(good_vals.iter().map(|s| (*s).to_owned()).collect()),
                 ),
-                (ContextKind::Usage, ContextValue::String(usage)),
             ]);
         if let Some(suggestion) = suggestion {
             err = err.insert_context_unchecked(
@@ -381,9 +379,8 @@ impl Error {
             ])
     }
 
-    pub(crate) fn unrecognized_subcommand(cmd: &Command, subcmd: String, name: String) -> Self {
+    pub(crate) fn unrecognized_subcommand(cmd: &Command, subcmd: String, usage: String) -> Self {
         let info = vec![subcmd.clone()];
-        let usage = format!("USAGE:\n    {} <subcommands>", name);
         Self::new(ErrorKind::UnrecognizedSubcommand)
             .with_cmd(cmd)
             .set_info(info)
@@ -429,24 +426,17 @@ impl Error {
 
     pub(crate) fn too_many_occurrences(
         cmd: &Command,
-        arg: &Arg,
+        arg: String,
         max_occurs: usize,
         curr_occurs: usize,
         usage: String,
     ) -> Self {
-        let info = vec![
-            arg.to_string(),
-            curr_occurs.to_string(),
-            max_occurs.to_string(),
-        ];
+        let info = vec![arg.clone(), curr_occurs.to_string(), max_occurs.to_string()];
         Self::new(ErrorKind::TooManyOccurrences)
             .with_cmd(cmd)
             .set_info(info)
             .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
+                (ContextKind::InvalidArg, ContextValue::String(arg)),
                 (
                     ContextKind::MaxOccurrences,
                     ContextValue::Number(max_occurs as isize),
@@ -460,7 +450,7 @@ impl Error {
     }
 
     pub(crate) fn too_many_values(cmd: &Command, val: String, arg: String, usage: String) -> Self {
-        let info = vec![arg.to_string(), val.clone()];
+        let info = vec![arg.clone(), val.clone()];
         Self::new(ErrorKind::TooManyValues)
             .with_cmd(cmd)
             .set_info(info)
@@ -473,20 +463,17 @@ impl Error {
 
     pub(crate) fn too_few_values(
         cmd: &Command,
-        arg: &Arg,
+        arg: String,
         min_vals: usize,
         curr_vals: usize,
         usage: String,
     ) -> Self {
-        let info = vec![arg.to_string(), curr_vals.to_string(), min_vals.to_string()];
+        let info = vec![arg.clone(), curr_vals.to_string(), min_vals.to_string()];
         Self::new(ErrorKind::TooFewValues)
             .with_cmd(cmd)
             .set_info(info)
             .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
+                (ContextKind::InvalidArg, ContextValue::String(arg)),
                 (
                     ContextKind::MinValues,
                     ContextValue::Number(min_vals as isize),
@@ -504,7 +491,7 @@ impl Error {
         val: String,
         err: Box<dyn error::Error + Send + Sync>,
     ) -> Self {
-        let info = vec![arg.to_string(), val.to_string(), err.to_string()];
+        let info = vec![arg.clone(), val.to_string(), err.to_string()];
         Self::new(ErrorKind::ValueValidation)
             .set_info(info)
             .set_source(err)
@@ -516,20 +503,17 @@ impl Error {
 
     pub(crate) fn wrong_number_of_values(
         cmd: &Command,
-        arg: &Arg,
+        arg: String,
         num_vals: usize,
         curr_vals: usize,
         usage: String,
     ) -> Self {
-        let info = vec![arg.to_string(), curr_vals.to_string(), num_vals.to_string()];
+        let info = vec![arg.clone(), curr_vals.to_string(), num_vals.to_string()];
         Self::new(ErrorKind::WrongNumberOfValues)
             .with_cmd(cmd)
             .set_info(info)
             .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
+                (ContextKind::InvalidArg, ContextValue::String(arg)),
                 (
                     ContextKind::ExpectedNumValues,
                     ContextValue::Number(num_vals as isize),
@@ -542,16 +526,13 @@ impl Error {
             ])
     }
 
-    pub(crate) fn unexpected_multiple_usage(cmd: &Command, arg: &Arg, usage: String) -> Self {
-        let info = vec![arg.to_string()];
+    pub(crate) fn unexpected_multiple_usage(cmd: &Command, arg: String, usage: String) -> Self {
+        let info = vec![arg.clone()];
         Self::new(ErrorKind::UnexpectedMultipleUsage)
             .with_cmd(cmd)
             .set_info(info)
             .extend_context_unchecked([
-                (
-                    ContextKind::InvalidArg,
-                    ContextValue::String(arg.to_string()),
-                ),
+                (ContextKind::InvalidArg, ContextValue::String(arg)),
                 (ContextKind::Usage, ContextValue::String(usage)),
             ])
     }
@@ -562,7 +543,7 @@ impl Error {
         did_you_mean: Option<(String, Option<String>)>,
         usage: String,
     ) -> Self {
-        let info = vec![arg.to_string()];
+        let info = vec![arg.clone()];
         let mut err = Self::new(ErrorKind::UnknownArgument)
             .with_cmd(cmd)
             .set_info(info)
@@ -586,7 +567,7 @@ impl Error {
     }
 
     pub(crate) fn unnecessary_double_dash(cmd: &Command, arg: String, usage: String) -> Self {
-        let info = vec![arg.to_string()];
+        let info = vec![arg.clone()];
         Self::new(ErrorKind::UnknownArgument)
             .with_cmd(cmd)
             .set_info(info)
@@ -598,7 +579,7 @@ impl Error {
     }
 
     pub(crate) fn argument_not_found_auto(arg: String) -> Self {
-        let info = vec![arg.to_string()];
+        let info = vec![arg.clone()];
         Self::new(ErrorKind::ArgumentNotFound)
             .set_info(info)
             .extend_context_unchecked([(ContextKind::InvalidArg, ContextValue::String(arg))])
@@ -608,7 +589,7 @@ impl Error {
         if let Some(message) = self.inner.message.as_ref() {
             message.formatted()
         } else {
-            let mut c = Colorizer::new(self.use_stderr(), self.inner.color_when);
+            let mut c = Colorizer::new(self.stream(), self.inner.color_when);
 
             start_error(&mut c);
 
@@ -1090,7 +1071,7 @@ impl Message {
     fn format(&mut self, cmd: &Command, usage: String) {
         match self {
             Message::Raw(s) => {
-                let mut c = Colorizer::new(true, cmd.get_color());
+                let mut c = Colorizer::new(Stream::Stderr, cmd.get_color());
 
                 let mut message = String::new();
                 std::mem::swap(s, &mut message);
@@ -1107,7 +1088,7 @@ impl Message {
     fn formatted(&self) -> Cow<Colorizer> {
         match self {
             Message::Raw(s) => {
-                let mut c = Colorizer::new(true, ColorChoice::Never);
+                let mut c = Colorizer::new(Stream::Stderr, ColorChoice::Never);
                 start_error(&mut c);
                 c.none(s);
                 Cow::Owned(c)
@@ -1166,12 +1147,7 @@ impl Display for Backtrace {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    /// Check `clap::Error` impls Send and Sync.
-    mod clap_error_impl_send_sync {
-        use crate::Error;
-        trait Foo: std::error::Error + Send + Sync + 'static {}
-        impl Foo for Error {}
-    }
+#[test]
+fn check_auto_traits() {
+    static_assertions::assert_impl_all!(Error: Send, Sync, Unpin);
 }

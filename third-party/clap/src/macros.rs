@@ -1,8 +1,11 @@
 /// Deprecated in [Issue #3087](https://github.com/clap-rs/clap/issues/3087), maybe [`clap::Parser`][crate::Parser] would fit your use case?
 #[cfg(feature = "yaml")]
-#[deprecated(
-    since = "3.0.0",
-    note = "Deprecated in Issue #3087, maybe clap::Parser would fit your use case?"
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(
+        since = "3.0.0",
+        note = "Deprecated in Issue #3087, maybe clap::Parser would fit your use case?"
+    )
 )]
 #[doc(hidden)]
 #[macro_export]
@@ -15,7 +18,10 @@ macro_rules! load_yaml {
 
 /// Deprecated, replaced with [`ArgMatches::value_of_t`][crate::ArgMatches::value_of_t]
 #[macro_export]
-#[deprecated(since = "3.0.0", note = "Replaced with `ArgMatches::value_of_t`")]
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.0.0", note = "Replaced with `ArgMatches::get_one`")
+)]
 #[doc(hidden)]
 macro_rules! value_t {
     ($m:ident, $v:expr, $t:ty) => {
@@ -28,9 +34,9 @@ macro_rules! value_t {
 
 /// Deprecated, replaced with [`ArgMatches::value_of_t_or_exit`][crate::ArgMatches::value_of_t_or_exit]
 #[macro_export]
-#[deprecated(
-    since = "3.0.0",
-    note = "Replaced with `ArgMatches::value_of_t_or_exit`"
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.0.0", note = "Replaced with `ArgMatches::get_one`")
 )]
 #[doc(hidden)]
 macro_rules! value_t_or_exit {
@@ -44,7 +50,10 @@ macro_rules! value_t_or_exit {
 
 /// Deprecated, replaced with [`ArgMatches::values_of_t`][crate::ArgMatches::value_of_t]
 #[macro_export]
-#[deprecated(since = "3.0.0", note = "Replaced with `ArgMatches::values_of_t`")]
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.0.0", note = "Replaced with `ArgMatches::get_many`")
+)]
 #[doc(hidden)]
 macro_rules! values_t {
     ($m:ident, $v:expr, $t:ty) => {
@@ -57,9 +66,9 @@ macro_rules! values_t {
 
 /// Deprecated, replaced with [`ArgMatches::values_of_t_or_exit`][crate::ArgMatches::value_of_t_or_exit]
 #[macro_export]
-#[deprecated(
-    since = "3.0.0",
-    note = "Replaced with `ArgMatches::values_of_t_or_exit`"
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.0.0", note = "Replaced with `ArgMatches::get_many`")
 )]
 #[doc(hidden)]
 macro_rules! values_t_or_exit {
@@ -71,8 +80,23 @@ macro_rules! values_t_or_exit {
     };
 }
 
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.0.0", note = "Replaced with `ValueEnum`")
+)]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! _clap_count_exprs {
+    () => { 0 };
+    ($e:expr) => { 1 };
+    ($e:expr, $($es:expr),+) => { 1 + $crate::_clap_count_exprs!($($es),*) };
+}
+
 /// Deprecated, replaced with [`ArgEnum`][crate::ArgEnum]
-#[deprecated(since = "3.0.0", note = "Replaced with `ArgEnum`")]
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.0.0", note = "Replaced with `ValueEnum`")
+)]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! arg_enum {
@@ -226,9 +250,10 @@ macro_rules! crate_version {
 #[macro_export]
 macro_rules! crate_authors {
     ($sep:expr) => {{
-        clap::lazy_static::lazy_static! {
-            static ref CACHED: String = env!("CARGO_PKG_AUTHORS").replace(':', $sep);
-        }
+        static CACHED: clap::__macro_refs::once_cell::sync::Lazy<String> =
+            clap::__macro_refs::once_cell::sync::Lazy::new(|| {
+                env!("CARGO_PKG_AUTHORS").replace(':', $sep)
+            });
 
         let s: &'static str = &*CACHED;
         s
@@ -336,7 +361,10 @@ macro_rules! command {
 
 /// Deprecated, replaced with [`clap::command!`][crate::command]
 #[cfg(feature = "cargo")]
-#[deprecated(since = "3.1.0", note = "Replaced with `clap::command!")]
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(since = "3.1.0", note = "Replaced with `clap::command!")
+)]
 #[macro_export]
 macro_rules! app_from_crate {
     () => {{
@@ -416,7 +444,10 @@ macro_rules! arg_impl {
             @arg
             ({
                 debug_assert_eq!($arg.get_value_names(), None, "Flags should precede values");
-                debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                }
 
                 let mut arg = $arg;
                 let long = $crate::arg_impl! { @string $long };
@@ -438,7 +469,10 @@ macro_rules! arg_impl {
             @arg
             ({
                 debug_assert_eq!($arg.get_value_names(), None, "Flags should precede values");
-                debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                }
 
                 let mut arg = $arg;
                 let long = $crate::arg_impl! { @string $long };
@@ -461,7 +495,10 @@ macro_rules! arg_impl {
             ({
                 debug_assert_eq!($arg.get_long(), None, "Short flags should precede long flags");
                 debug_assert_eq!($arg.get_value_names(), None, "Flags should precede values");
-                debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                }
 
                 $arg.short($crate::arg_impl! { @char $short })
             })
@@ -479,7 +516,10 @@ macro_rules! arg_impl {
             ({
                 debug_assert_eq!($arg.get_long(), None, "Short flags should precede long flags");
                 debug_assert_eq!($arg.get_value_names(), None, "Flags should precede values");
-                debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Flags should precede `...`");
+                }
 
                 $arg.short($crate::arg_impl! { @char $short })
             })
@@ -495,7 +535,39 @@ macro_rules! arg_impl {
         $crate::arg_impl! {
             @arg
             ({
-                debug_assert!(!$arg.is_multiple_occurrences_set(), "Values should precede `...`");
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Values should precede `...`");
+                }
+                debug_assert_eq!($arg.get_value_names(), None, "Multiple values not yet supported");
+
+                let mut arg = $arg;
+
+                arg = arg.required(true);
+                arg = arg.takes_value(true);
+
+                let value_name = $crate::arg_impl! { @string $value_name };
+                if arg.get_id().is_empty() {
+                    arg = arg.id(value_name);
+                }
+                arg.value_name(value_name)
+            })
+            $($tail)*
+        }
+    };
+    (
+        @arg
+        ($arg:expr)
+        <$value_name:literal>
+        $($tail:tt)*
+    ) => {
+        $crate::arg_impl! {
+            @arg
+            ({
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Values should precede `...`");
+                }
                 debug_assert_eq!($arg.get_value_names(), None, "Multiple values not yet supported");
 
                 let mut arg = $arg;
@@ -521,7 +593,43 @@ macro_rules! arg_impl {
         $crate::arg_impl! {
             @arg
             ({
-                debug_assert!(!$arg.is_multiple_occurrences_set(), "Values should precede `...`");
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Values should precede `...`");
+                }
+                debug_assert_eq!($arg.get_value_names(), None, "Multiple values not yet supported");
+
+                let mut arg = $arg;
+
+                if arg.get_long().is_none() && arg.get_short().is_none() {
+                    arg = arg.required(false);
+                } else {
+                    arg = arg.min_values(0).max_values(1);
+                }
+                arg = arg.takes_value(true);
+
+                let value_name = $crate::arg_impl! { @string $value_name };
+                if arg.get_id().is_empty() {
+                    arg = arg.id(value_name);
+                }
+                arg.value_name(value_name)
+            })
+            $($tail)*
+        }
+    };
+    (
+        @arg
+        ($arg:expr)
+        [$value_name:literal]
+        $($tail:tt)*
+    ) => {
+        $crate::arg_impl! {
+            @arg
+            ({
+                #[allow(deprecated)]
+                {
+                    debug_assert!(!$arg.is_multiple_occurrences_set(), "Values should precede `...`");
+                }
                 debug_assert_eq!($arg.get_value_names(), None, "Multiple values not yet supported");
 
                 let mut arg = $arg;
@@ -550,9 +658,9 @@ macro_rules! arg_impl {
     ) => {
         $crate::arg_impl! {
             @arg
-            ({
+            ({#[allow(deprecated)]{
                 $arg.multiple_occurrences(true)
-            })
+            }})
             $($tail)*
         }
     };
@@ -633,7 +741,7 @@ macro_rules! arg_impl {
 ///
 /// ### Help String
 ///
-/// The help string is denoted between a pair of single quotes `''` and may contain any
+/// The help string is denoted between a pair of double quotes `""` and may contain any
 /// characters.
 ///
 /// # Examples
@@ -666,9 +774,12 @@ macro_rules! arg {
 }
 
 /// Deprecated, replaced with [`clap::Parser`][crate::Parser] and [`clap::arg!`][crate::arg] (Issue clap-rs/clap#2835)
-#[deprecated(
-    since = "3.0.0",
-    note = "Replaced with `clap::Parser` for a declarative API (Issue clap-rs/clap#2835)"
+#[cfg_attr(
+    feature = "deprecated",
+    deprecated(
+        since = "3.0.0",
+        note = "Replaced with `clap::Parser` for a declarative API (Issue clap-rs/clap#2835)"
+    )
 )]
 #[doc(hidden)]
 #[macro_export]
@@ -933,7 +1044,7 @@ macro_rules! debug {
     ($($arg:tt)*) => ({
         let prefix = format!("[{:>w$}] \t", module_path!(), w = 28);
         let body = format!($($arg)*);
-        let mut color = $crate::output::fmt::Colorizer::new(true, $crate::ColorChoice::Auto);
+        let mut color = $crate::output::fmt::Colorizer::new($crate::output::fmt::Stream::Stderr, $crate::ColorChoice::Auto);
         color.hint(prefix);
         color.hint(body);
         color.none("\n");

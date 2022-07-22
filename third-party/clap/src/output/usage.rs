@@ -1,9 +1,9 @@
 use indexmap::IndexSet;
 
 // Internal
-use crate::build::AppSettings as AS;
-use crate::build::{Arg, ArgPredicate, Command};
-use crate::parse::ArgMatcher;
+use crate::builder::AppSettings as AS;
+use crate::builder::{Arg, ArgPredicate, Command};
+use crate::parser::ArgMatcher;
 use crate::util::ChildGraph;
 use crate::util::Id;
 use crate::INTERNAL_ERROR_MSG;
@@ -154,7 +154,7 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
                 usage.push(']');
             }
         }
-        usage.shrink_to_fit();
+        let usage = usage.trim().to_owned();
         debug!("Usage::create_help_usage: usage={}", usage);
         usage
     }
@@ -333,14 +333,14 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
         incls: &[Id],
         matcher: Option<&ArgMatcher>,
         incl_last: bool,
-    ) -> Vec<String> {
+    ) -> IndexSet<String> {
         debug!(
             "Usage::get_required_usage_from: incls={:?}, matcher={:?}, incl_last={:?}",
             incls,
             matcher.is_some(),
             incl_last
         );
-        let mut ret_val = Vec::new();
+        let mut ret_val = IndexSet::new();
 
         let mut unrolled_reqs = IndexSet::new();
 
@@ -395,11 +395,17 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
             .filter(|name| !self.cmd.get_positionals().any(|p| &&p.id == name))
             .filter(|name| !self.cmd.get_groups().any(|g| &&g.id == name))
             .filter(|name| !args_in_groups.contains(name))
-            .filter(|name| !(matcher.is_some() && matcher.as_ref().unwrap().contains(name)))
+            .filter(|name| {
+                !(matcher.is_some()
+                    && matcher
+                        .as_ref()
+                        .unwrap()
+                        .check_explicit(name, ArgPredicate::IsPresent))
+            })
         {
             debug!("Usage::get_required_usage_from:iter:{:?}", a);
             let arg = self.cmd.find(a).expect(INTERNAL_ERROR_MSG).to_string();
-            ret_val.push(arg);
+            ret_val.insert(arg);
         }
         let mut g_vec: Vec<String> = vec![];
         for g in unrolled_reqs
@@ -412,7 +418,7 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
                     .cmd
                     .unroll_args_in_group(g)
                     .iter()
-                    .any(|arg| m.contains(arg));
+                    .any(|arg| m.check_explicit(arg, ArgPredicate::IsPresent));
                 if have_group_entry {
                     continue;
                 }
@@ -423,13 +429,15 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
                 g_vec.push(elem);
             }
         }
-        ret_val.extend_from_slice(&g_vec);
+        ret_val.extend(g_vec);
 
         let mut pvec = unrolled_reqs
             .iter()
             .chain(incls.iter())
             .filter(|a| self.cmd.get_positionals().any(|p| &&p.id == a))
-            .filter(|&pos| matcher.map_or(true, |m| !m.contains(pos)))
+            .filter(|&pos| {
+                matcher.map_or(true, |m| !m.check_explicit(pos, ArgPredicate::IsPresent))
+            })
             .filter_map(|pos| self.cmd.find(pos))
             .filter(|&pos| incl_last || !pos.is_last_set())
             .filter(|pos| !args_in_groups.contains(&pos.id))
@@ -438,9 +446,9 @@ impl<'help, 'cmd> Usage<'help, 'cmd> {
         pvec.sort_by_key(|(ind, _)| *ind); // sort by index
 
         for (_, p) in pvec {
-            debug!("Usage::get_required_usage_from:iter:{:?}", p.id);
+            debug!("Usage::get_required_usage_from:push:{:?}", p.id);
             if !args_in_groups.contains(&p.id) {
-                ret_val.push(p.to_string());
+                ret_val.insert(p.to_string());
             }
         }
 

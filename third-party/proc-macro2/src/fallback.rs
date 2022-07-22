@@ -4,7 +4,7 @@ use crate::{Delimiter, Spacing, TokenTree};
 use std::cell::RefCell;
 #[cfg(span_locations)]
 use std::cmp;
-use std::fmt::{self, Debug, Display};
+use std::fmt::{self, Debug, Display, Write};
 use std::iter::FromIterator;
 use std::mem;
 use std::ops::RangeBounds;
@@ -13,7 +13,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::vec;
-use unicode_xid::UnicodeXID;
 
 /// Force use of proc-macro2's fallback implementation of the API for now, even
 /// if the compiler's implementation is available.
@@ -639,7 +638,7 @@ pub(crate) struct Ident {
 
 impl Ident {
     fn _new(string: &str, raw: bool, span: Span) -> Self {
-        validate_ident(string);
+        validate_ident(string, raw);
 
         Ident {
             sym: string.to_owned(),
@@ -666,27 +665,19 @@ impl Ident {
 }
 
 pub(crate) fn is_ident_start(c: char) -> bool {
-    ('a' <= c && c <= 'z')
-        || ('A' <= c && c <= 'Z')
-        || c == '_'
-        || (c > '\x7f' && UnicodeXID::is_xid_start(c))
+    c == '_' || unicode_ident::is_xid_start(c)
 }
 
 pub(crate) fn is_ident_continue(c: char) -> bool {
-    ('a' <= c && c <= 'z')
-        || ('A' <= c && c <= 'Z')
-        || c == '_'
-        || ('0' <= c && c <= '9')
-        || (c > '\x7f' && UnicodeXID::is_xid_continue(c))
+    unicode_ident::is_xid_continue(c)
 }
 
-fn validate_ident(string: &str) {
-    let validate = string;
-    if validate.is_empty() {
+fn validate_ident(string: &str, raw: bool) {
+    if string.is_empty() {
         panic!("Ident is not allowed to be empty; use Option<Ident>");
     }
 
-    if validate.bytes().all(|digit| digit >= b'0' && digit <= b'9') {
+    if string.bytes().all(|digit| digit >= b'0' && digit <= b'9') {
         panic!("Ident cannot be a number; use Literal instead");
     }
 
@@ -704,8 +695,17 @@ fn validate_ident(string: &str) {
         true
     }
 
-    if !ident_ok(validate) {
+    if !ident_ok(string) {
         panic!("{:?} is not a valid Ident", string);
+    }
+
+    if raw {
+        match string {
+            "_" | "super" | "self" | "Self" | "crate" => {
+                panic!("`r#{}` cannot be a raw identifier", string);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -883,7 +883,9 @@ impl Literal {
                 b'"' => escaped.push_str("\\\""),
                 b'\\' => escaped.push_str("\\\\"),
                 b'\x20'..=b'\x7E' => escaped.push(*b as char),
-                _ => escaped.push_str(&format!("\\x{:02X}", b)),
+                _ => {
+                    let _ = write!(escaped, "\\x{:02X}", b);
+                }
             }
         }
         escaped.push('"');

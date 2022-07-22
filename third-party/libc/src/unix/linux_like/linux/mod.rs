@@ -685,16 +685,12 @@ s_no_extra_traits! {
     }
 }
 
-cfg_if! {
-    if #[cfg(not(all(target_env = "musl", target_arch = "mips")))] {
-        s_no_extra_traits! {
-            // linux/net_tstamp.h
-            #[allow(missing_debug_implementations)]
-            pub struct sock_txtime {
-                pub clockid: ::clockid_t,
-                pub flags: ::__u32,
-            }
-        }
+s_no_extra_traits! {
+    // linux/net_tstamp.h
+    #[allow(missing_debug_implementations)]
+    pub struct sock_txtime {
+        pub clockid: ::clockid_t,
+        pub flags: ::__u32,
     }
 }
 
@@ -1519,6 +1515,9 @@ pub const PTHREAD_MUTEX_ERRORCHECK: ::c_int = 2;
 pub const PTHREAD_MUTEX_DEFAULT: ::c_int = PTHREAD_MUTEX_NORMAL;
 pub const PTHREAD_MUTEX_STALLED: ::c_int = 0;
 pub const PTHREAD_MUTEX_ROBUST: ::c_int = 1;
+pub const PTHREAD_PRIO_NONE: ::c_int = 0;
+pub const PTHREAD_PRIO_INHERIT: ::c_int = 1;
+pub const PTHREAD_PRIO_PROTECT: ::c_int = 2;
 pub const PTHREAD_PROCESS_PRIVATE: ::c_int = 0;
 pub const PTHREAD_PROCESS_SHARED: ::c_int = 1;
 pub const __SIZEOF_PTHREAD_COND_T: usize = 48;
@@ -1776,8 +1775,12 @@ pub const PR_CAP_AMBIENT_RAISE: ::c_int = 2;
 pub const PR_CAP_AMBIENT_LOWER: ::c_int = 3;
 pub const PR_CAP_AMBIENT_CLEAR_ALL: ::c_int = 4;
 
+pub const PR_SET_VMA: ::c_int = 0x53564d41;
+pub const PR_SET_VMA_ANON_NAME: ::c_int = 0;
+
 pub const GRND_NONBLOCK: ::c_uint = 0x0001;
 pub const GRND_RANDOM: ::c_uint = 0x0002;
+pub const GRND_INSECURE: ::c_uint = 0x0004;
 
 pub const SECCOMP_MODE_DISABLED: ::c_uint = 0;
 pub const SECCOMP_MODE_STRICT: ::c_uint = 1;
@@ -2657,12 +2660,8 @@ pub const SOF_TIMESTAMPING_RX_SOFTWARE: ::c_uint = 1 << 3;
 pub const SOF_TIMESTAMPING_SOFTWARE: ::c_uint = 1 << 4;
 pub const SOF_TIMESTAMPING_SYS_HARDWARE: ::c_uint = 1 << 5;
 pub const SOF_TIMESTAMPING_RAW_HARDWARE: ::c_uint = 1 << 6;
-cfg_if! {
-    if #[cfg(not(all(target_env = "musl", target_arch = "mips")))] {
-        pub const SOF_TXTIME_DEADLINE_MODE: u32 = 1 << 0;
-        pub const SOF_TXTIME_REPORT_ERRORS: u32 = 1 << 1;
-    }
-}
+pub const SOF_TXTIME_DEADLINE_MODE: u32 = 1 << 0;
+pub const SOF_TXTIME_REPORT_ERRORS: u32 = 1 << 1;
 
 // linux/if_alg.h
 pub const ALG_SET_KEY: ::c_int = 1;
@@ -3785,6 +3784,14 @@ extern "C" {
         timeout: *const ::timespec,
         sigmask: *const sigset_t,
     ) -> ::c_int;
+    pub fn pthread_mutexattr_getprotocol(
+        attr: *const pthread_mutexattr_t,
+        protocol: *mut ::c_int,
+    ) -> ::c_int;
+    pub fn pthread_mutexattr_setprotocol(
+        attr: *mut pthread_mutexattr_t,
+        protocol: ::c_int,
+    ) -> ::c_int;
     pub fn pthread_mutex_consistent(mutex: *mut pthread_mutex_t) -> ::c_int;
     pub fn pthread_mutex_timedlock(
         lock: *mut pthread_mutex_t,
@@ -4083,6 +4090,9 @@ extern "C" {
         needlelen: ::size_t,
     ) -> *mut ::c_void;
     pub fn sched_getcpu() -> ::c_int;
+
+    pub fn pthread_getname_np(thread: ::pthread_t, name: *mut ::c_char, len: ::size_t) -> ::c_int;
+    pub fn pthread_setname_np(thread: ::pthread_t, name: *const ::c_char) -> ::c_int;
 }
 
 cfg_if! {
