@@ -1,12 +1,12 @@
 use crate::detection::inside_proc_macro;
 use crate::{fallback, Delimiter, Punct, Spacing, TokenTree};
-use std::fmt::{self, Debug, Display};
-use std::iter::FromIterator;
-use std::ops::RangeBounds;
+use core::fmt::{self, Debug, Display};
+use core::iter::FromIterator;
+use core::ops::RangeBounds;
+use core::str::FromStr;
 use std::panic;
 #[cfg(super_unstable)]
 use std::path::PathBuf;
-use std::str::FromStr;
 
 #[derive(Clone)]
 pub(crate) enum TokenStream {
@@ -350,12 +350,6 @@ impl Iterator for TokenTreeIter {
     }
 }
 
-impl Debug for TokenTreeIter {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("TokenTreeIter").finish()
-    }
-}
-
 #[derive(Clone, PartialEq, Eq)]
 #[cfg(super_unstable)]
 pub(crate) enum SourceFile {
@@ -508,6 +502,22 @@ impl Span {
                 let fallback::LineColumn { line, column } = s.end();
                 LineColumn { line, column }
             }
+        }
+    }
+
+    #[cfg(super_unstable)]
+    pub fn before(&self) -> Span {
+        match self {
+            Span::Compiler(s) => Span::Compiler(s.before()),
+            Span::Fallback(s) => Span::Fallback(s.before()),
+        }
+    }
+
+    #[cfg(super_unstable)]
+    pub fn after(&self) -> Span {
+        match self {
+            Span::Compiler(s) => Span::Compiler(s.after()),
+            Span::Fallback(s) => Span::Fallback(s.after()),
         }
     }
 

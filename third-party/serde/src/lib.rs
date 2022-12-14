@@ -31,8 +31,7 @@
 //! for Serde by the community.
 //!
 //! - [JSON], the ubiquitous JavaScript Object Notation used by many HTTP APIs.
-//! - [Bincode], a compact binary format
-//!   used for IPC within the Servo rendering engine.
+//! - [Postcard], a no\_std and embedded-systems friendly compact binary format.
 //! - [CBOR], a Concise Binary Object Representation designed for small message
 //!   size without the need for version negotiation.
 //! - [YAML], a self-proclaimed human-friendly configuration language that ain't
@@ -45,7 +44,6 @@
 //! - [Avro], a binary format used within Apache Hadoop, with support for schema
 //!   definition.
 //! - [JSON5], a superset of JSON including some productions from ES5.
-//! - [Postcard], a no\_std and embedded-systems friendly compact binary format.
 //! - [URL] query strings, in the x-www-form-urlencoded format.
 //! - [Envy], a way to deserialize environment variables into Rust structs.
 //!   *(deserialization only)*
@@ -59,17 +57,16 @@
 //!   and from DynamoDB.
 //!
 //! [JSON]: https://github.com/serde-rs/json
-//! [Bincode]: https://github.com/bincode-org/bincode
+//! [Postcard]: https://github.com/jamesmunns/postcard
 //! [CBOR]: https://github.com/enarx/ciborium
 //! [YAML]: https://github.com/dtolnay/serde-yaml
 //! [MessagePack]: https://github.com/3Hren/msgpack-rust
-//! [TOML]: https://github.com/alexcrichton/toml-rs
+//! [TOML]: https://docs.rs/toml
 //! [Pickle]: https://github.com/birkenfeld/serde-pickle
 //! [RON]: https://github.com/ron-rs/ron
 //! [BSON]: https://github.com/mongodb/bson-rust
-//! [Avro]: https://github.com/flavray/avro-rs
+//! [Avro]: https://docs.rs/apache-avro
 //! [JSON5]: https://github.com/callum-oakley/json5-rs
-//! [Postcard]: https://github.com/jamesmunns/postcard
 //! [URL]: https://docs.rs/serde_qs
 //! [Envy]: https://github.com/softprops/envy
 //! [Envy Store]: https://github.com/softprops/envy-store
@@ -84,7 +81,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // Serde types in rustdoc of other crates get linked to here.
-#![doc(html_root_url = "https://docs.rs/serde/1.0.140")]
+#![doc(html_root_url = "https://docs.rs/serde/1.0.150")]
 // Support using Serde without the standard library!
 #![cfg_attr(not(feature = "std"), no_std)]
 // Unstable functionality only if the user asks for it. For tracking and
@@ -121,7 +118,6 @@
         derive_partial_eq_without_eq,
         enum_glob_use,
         explicit_auto_deref,
-        let_underscore_drop,
         map_err_ignore,
         new_without_default,
         result_unit_err,
@@ -240,16 +236,42 @@ mod lib {
     #[cfg(not(no_range_inclusive))]
     pub use self::core::ops::RangeInclusive;
 
-    #[cfg(all(feature = "std", not(no_std_atomic)))]
+    #[cfg(all(feature = "std", no_target_has_atomic, not(no_std_atomic)))]
     pub use std::sync::atomic::{
         AtomicBool, AtomicI16, AtomicI32, AtomicI8, AtomicIsize, AtomicU16, AtomicU32, AtomicU8,
         AtomicUsize, Ordering,
     };
-    #[cfg(all(feature = "std", not(no_std_atomic64)))]
+    #[cfg(all(feature = "std", no_target_has_atomic, not(no_std_atomic64)))]
     pub use std::sync::atomic::{AtomicI64, AtomicU64};
+
+    #[cfg(all(feature = "std", not(no_target_has_atomic)))]
+    pub use std::sync::atomic::Ordering;
+    #[cfg(all(feature = "std", not(no_target_has_atomic), target_has_atomic = "8"))]
+    pub use std::sync::atomic::{AtomicBool, AtomicI8, AtomicU8};
+    #[cfg(all(feature = "std", not(no_target_has_atomic), target_has_atomic = "16"))]
+    pub use std::sync::atomic::{AtomicI16, AtomicU16};
+    #[cfg(all(feature = "std", not(no_target_has_atomic), target_has_atomic = "32"))]
+    pub use std::sync::atomic::{AtomicI32, AtomicU32};
+    #[cfg(all(feature = "std", not(no_target_has_atomic), target_has_atomic = "64"))]
+    pub use std::sync::atomic::{AtomicI64, AtomicU64};
+    #[cfg(all(feature = "std", not(no_target_has_atomic), target_has_atomic = "ptr"))]
+    pub use std::sync::atomic::{AtomicIsize, AtomicUsize};
 
     #[cfg(any(feature = "std", not(no_core_duration)))]
     pub use self::core::time::Duration;
+}
+
+// None of this crate's error handling needs the `From::from` error conversion
+// performed implicitly by the `?` operator or the standard library's `try!`
+// macro. This simplified macro gives a 5.5% improvement in compile time
+// compared to standard `try!`, and 9% improvement compared to `?`.
+macro_rules! try {
+    ($expr:expr) => {
+        match $expr {
+            Ok(val) => val,
+            Err(err) => return Err(err),
+        }
+    };
 }
 
 ////////////////////////////////////////////////////////////////////////////////

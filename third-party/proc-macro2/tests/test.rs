@@ -1,4 +1,4 @@
-#![allow(clippy::non_ascii_literal)]
+#![allow(clippy::assertions_on_result_states, clippy::non_ascii_literal)]
 
 use proc_macro2::{Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 use std::panic;
@@ -548,6 +548,13 @@ fn default_tokenstream_is_empty() {
 }
 
 #[test]
+fn tokenstream_size_hint() {
+    let tokens = "a b (c d) e".parse::<TokenStream>().unwrap();
+
+    assert_eq!(tokens.into_iter().size_hint(), (4, Some(4)));
+}
+
+#[test]
 fn tuple_indexing() {
     // This behavior may change depending on https://github.com/rust-lang/rust/pull/71322
     let mut tokens = "tuple.0.0".parse::<TokenStream>().unwrap().into_iter();
@@ -622,4 +629,17 @@ fn check_spans_internal(ts: TokenStream, lines: &mut &[(usize, usize, usize, usi
             }
         }
     }
+}
+
+#[test]
+fn byte_order_mark() {
+    let string = "\u{feff}foo";
+    let tokens = string.parse::<TokenStream>().unwrap();
+    match tokens.into_iter().next().unwrap() {
+        TokenTree::Ident(ident) => assert_eq!(ident, "foo"),
+        _ => unreachable!(),
+    }
+
+    let string = "foo\u{feff}";
+    string.parse::<TokenStream>().unwrap_err();
 }
