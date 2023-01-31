@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 use std::process::exit;
 
-use clap::{value_parser, Arg, ArgAction, Command};
+use clap::{value_parser, Arg, Command};
 
-fn applet_commands() -> [Command; 2] {
+fn applet_commands() -> [Command<'static>; 2] {
     [
         Command::new("true").about("does nothing successfully"),
         Command::new("false").about("does nothing unsuccessfully"),
@@ -23,9 +23,10 @@ fn main() {
                         .long("install")
                         .help("Install hardlinks for all subcommands in path")
                         .exclusive(true)
-                        .action(ArgAction::Set)
+                        .takes_value(true)
                         .default_missing_value("/usr/local/bin")
-                        .value_parser(value_parser!(PathBuf)),
+                        .value_parser(value_parser!(PathBuf))
+                        .use_value_delimiter(false),
                 )
                 .subcommands(applet_commands()),
         )

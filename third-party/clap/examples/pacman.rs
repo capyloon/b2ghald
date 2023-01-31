@@ -21,8 +21,8 @@ fn main() {
                         .long("search")
                         .help("search locally installed packages for matching strings")
                         .conflicts_with("info")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
+                        .takes_value(true)
+                        .multiple_values(true),
                 )
                 .arg(
                     Arg::new("info")
@@ -30,8 +30,8 @@ fn main() {
                         .short('i')
                         .conflicts_with("search")
                         .help("view package information")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
+                        .takes_value(true)
+                        .multiple_values(true),
                 ),
         )
         // Sync subcommand
@@ -47,8 +47,8 @@ fn main() {
                         .short('s')
                         .long("search")
                         .conflicts_with("info")
-                        .action(ArgAction::Set)
-                        .num_args(1..)
+                        .takes_value(true)
+                        .multiple_values(true)
                         .help("search remote repositories for matching strings"),
                 )
                 .arg(
@@ -63,8 +63,8 @@ fn main() {
                     Arg::new("package")
                         .help("packages")
                         .required_unless_present("search")
-                        .action(ArgAction::Set)
-                        .num_args(1..),
+                        .takes_value(true)
+                        .multiple_values(true),
                 ),
         )
         .get_matches();

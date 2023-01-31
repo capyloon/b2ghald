@@ -3,20 +3,21 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     /// Optional name to operate on
+    #[clap(value_parser)]
     name: Option<String>,
 
     /// Sets a custom config file
-    #[arg(short, long, value_name = "FILE")]
+    #[clap(short, long, value_parser, value_name = "FILE")]
     config: Option<PathBuf>,
 
     /// Turn debugging information on
-    #[arg(short, long, action = clap::ArgAction::Count)]
+    #[clap(short, long, action = clap::ArgAction::Count)]
     debug: u8,
 
-    #[command(subcommand)]
+    #[clap(subcommand)]
     command: Option<Commands>,
 }
 
@@ -25,7 +26,7 @@ enum Commands {
     /// does testing things
     Test {
         /// lists test values
-        #[arg(short, long)]
+        #[clap(short, long, action)]
         list: bool,
     },
 }

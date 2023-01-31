@@ -14,6 +14,7 @@ use crate::INTERNAL_ERROR_MSG;
 
 #[derive(Debug, Clone)]
 pub(crate) struct MatchedArg {
+    occurs: u64,
     source: Option<ValueSource>,
     indices: Vec<usize>,
     type_id: Option<AnyValueId>,
@@ -26,6 +27,7 @@ impl MatchedArg {
     pub(crate) fn new_arg(arg: &crate::Arg) -> Self {
         let ignore_case = arg.is_ignore_case_set();
         Self {
+            occurs: 0,
             source: None,
             indices: Vec::new(),
             type_id: Some(arg.get_value_parser().type_id()),
@@ -38,6 +40,7 @@ impl MatchedArg {
     pub(crate) fn new_group() -> Self {
         let ignore_case = false;
         Self {
+            occurs: 0,
             source: None,
             indices: Vec::new(),
             type_id: None,
@@ -50,6 +53,7 @@ impl MatchedArg {
     pub(crate) fn new_external(cmd: &crate::Command) -> Self {
         let ignore_case = false;
         Self {
+            occurs: 0,
             source: None,
             indices: Vec::new(),
             type_id: Some(
@@ -61,6 +65,21 @@ impl MatchedArg {
             raw_vals: Vec::new(),
             ignore_case,
         }
+    }
+
+    #[cfg_attr(feature = "deprecated", deprecated(since = "3.2.0"))]
+    pub(crate) fn inc_occurrences(&mut self) {
+        self.occurs += 1;
+    }
+
+    #[cfg_attr(feature = "deprecated", deprecated(since = "3.2.0"))]
+    pub(crate) fn set_occurrences(&mut self, occurs: u64) {
+        self.occurs = occurs
+    }
+
+    #[cfg_attr(feature = "deprecated", deprecated(since = "3.2.0"))]
+    pub(crate) fn get_occurrences(&self) -> u64 {
+        self.occurs
     }
 
     pub(crate) fn indices(&self) -> Cloned<Iter<'_, usize>> {
@@ -75,12 +94,9 @@ impl MatchedArg {
         self.indices.push(index)
     }
 
+    #[cfg(feature = "unstable-grouped")]
     pub(crate) fn vals(&self) -> Iter<Vec<AnyValue>> {
         self.vals.iter()
-    }
-
-    pub(crate) fn into_vals(self) -> Vec<Vec<AnyValue>> {
-        self.vals
     }
 
     pub(crate) fn vals_flatten(&self) -> Flatten<Iter<Vec<AnyValue>>> {
@@ -89,10 +105,6 @@ impl MatchedArg {
 
     pub(crate) fn into_vals_flatten(self) -> Flatten<std::vec::IntoIter<Vec<AnyValue>>> {
         self.vals.into_iter().flatten()
-    }
-
-    pub(crate) fn raw_vals(&self) -> Iter<Vec<OsString>> {
-        self.raw_vals.iter()
     }
 
     pub(crate) fn raw_vals_flatten(&self) -> Flatten<Iter<Vec<OsString>>> {
@@ -136,8 +148,8 @@ impl MatchedArg {
         self.vals.iter().flatten().count() == 0
     }
 
-    pub(crate) fn check_explicit(&self, predicate: &ArgPredicate) -> bool {
-        if self.source.map(|s| !s.is_explicit()).unwrap_or(false) {
+    pub(crate) fn check_explicit(&self, predicate: ArgPredicate) -> bool {
+        if self.source == Some(ValueSource::DefaultValue) {
             return false;
         }
 
@@ -184,6 +196,7 @@ impl MatchedArg {
 impl PartialEq for MatchedArg {
     fn eq(&self, other: &MatchedArg) -> bool {
         let MatchedArg {
+            occurs: self_occurs,
             source: self_source,
             indices: self_indices,
             type_id: self_type_id,
@@ -192,6 +205,7 @@ impl PartialEq for MatchedArg {
             ignore_case: self_ignore_case,
         } = self;
         let MatchedArg {
+            occurs: other_occurs,
             source: other_source,
             indices: other_indices,
             type_id: other_type_id,
@@ -199,7 +213,8 @@ impl PartialEq for MatchedArg {
             raw_vals: other_raw_vals,
             ignore_case: other_ignore_case,
         } = other;
-        self_source == other_source
+        self_occurs == other_occurs
+            && self_source == other_source
             && self_indices == other_indices
             && self_type_id == other_type_id
             && self_raw_vals == other_raw_vals

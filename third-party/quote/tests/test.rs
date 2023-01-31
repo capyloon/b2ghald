@@ -1,5 +1,6 @@
 #![allow(
-    clippy::disallowed_names,
+    clippy::blacklisted_name,
+    clippy::let_underscore_drop,
     clippy::shadow_unrelated,
     clippy::unseparated_literal_suffix,
     clippy::used_underscore_binding

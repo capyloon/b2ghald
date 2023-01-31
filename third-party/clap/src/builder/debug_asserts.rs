@@ -2,13 +2,9 @@ use std::cmp::Ordering;
 
 use clap_lex::RawOsStr;
 
-use crate::builder::OsStr;
-use crate::builder::ValueRange;
+use crate::builder::arg::ArgProvider;
 use crate::mkeymap::KeyType;
-use crate::util::FlatSet;
-use crate::util::Id;
 use crate::ArgAction;
-use crate::INTERNAL_ERROR_MSG;
 use crate::{Arg, Command, ValueHint};
 
 pub(crate) fn assert_app(cmd: &Command) {
@@ -29,7 +25,17 @@ pub(crate) fn assert_app(cmd: &Command) {
         // Used `Command::mut_arg("version", ..) but did not provide any version information to display
         let version_needed = cmd
             .get_arguments()
-            .filter(|x| matches!(x.get_action(), ArgAction::Version))
+            .filter(|x| {
+                let action_set = matches!(x.get_action(), ArgAction::Version);
+                #[cfg(not(feature = "unstable-v4"))]
+                let provider_set = matches!(x.provider, ArgProvider::GeneratedMutated);
+                #[cfg(feature = "unstable-v4")]
+                let provider_set = matches!(
+                    x.provider,
+                    ArgProvider::User | ArgProvider::GeneratedMutated
+                );
+                action_set && provider_set
+            })
             .map(|x| x.get_id())
             .collect::<Vec<_>>();
 
@@ -48,7 +54,10 @@ pub(crate) fn assert_app(cmd: &Command) {
         }
 
         if let Some(l) = sc.get_long_flag().as_ref() {
-            assert!(!l.starts_with('-'), "Command {}: long_flag {:?} must not start with a `-`, that will be handled by the parser", sc.get_name(), l);
+            #[cfg(feature = "unstable-v4")]
+            {
+                assert!(!l.starts_with('-'), "Command {}: long_flag {:?} must not start with a `-`, that will be handled by the parser", sc.get_name(), l);
+            }
             long_flags.push(Flag::Command(format!("--{}", l), sc.get_name()));
         }
 
@@ -64,68 +73,61 @@ pub(crate) fn assert_app(cmd: &Command) {
             !cmd.is_multicall_set(),
             "Command {}: Arguments like {} cannot be set on a multicall command",
             cmd.get_name(),
-            arg.get_id()
+            arg.name
         );
 
-        if let Some(s) = arg.get_short() {
-            short_flags.push(Flag::Arg(format!("-{}", s), arg.get_id().as_str()));
+        if let Some(s) = arg.short.as_ref() {
+            short_flags.push(Flag::Arg(format!("-{}", s), &*arg.name));
         }
 
         for (short_alias, _) in &arg.short_aliases {
-            short_flags.push(Flag::Arg(
-                format!("-{}", short_alias),
-                arg.get_id().as_str(),
-            ));
+            short_flags.push(Flag::Arg(format!("-{}", short_alias), arg.name));
         }
 
-        if let Some(l) = arg.get_long() {
-            assert!(!l.starts_with('-'), "Argument {}: long {:?} must not start with a `-`, that will be handled by the parser", arg.get_id(), l);
-            long_flags.push(Flag::Arg(format!("--{}", l), arg.get_id().as_str()));
+        if let Some(l) = arg.long.as_ref() {
+            #[cfg(feature = "unstable-v4")]
+            {
+                assert!(!l.starts_with('-'), "Argument {}: long {:?} must not start with a `-`, that will be handled by the parser", arg.name, l);
+            }
+            long_flags.push(Flag::Arg(format!("--{}", l), &*arg.name));
         }
 
         for (long_alias, _) in &arg.aliases {
-            long_flags.push(Flag::Arg(
-                format!("--{}", long_alias),
-                arg.get_id().as_str(),
-            ));
+            long_flags.push(Flag::Arg(format!("--{}", long_alias), arg.name));
         }
 
         // Name conflicts
-        if let Some((first, second)) = cmd.two_args_of(|x| x.get_id() == arg.get_id()) {
-            panic!(
-            "Command {}: Argument names must be unique, but '{}' is in use by more than one argument or group{}",
+        assert!(
+            cmd.two_args_of(|x| x.id == arg.id).is_none(),
+            "Command {}: Argument names must be unique, but '{}' is in use by more than one argument or group",
             cmd.get_name(),
-            arg.get_id(),
-            duplicate_tip(cmd, first, second),
+            arg.name,
         );
-        }
 
         // Long conflicts
-        if let Some(l) = arg.get_long() {
-            if let Some((first, second)) = cmd.two_args_of(|x| x.get_long() == Some(l)) {
+        if let Some(l) = arg.long {
+            if let Some((first, second)) = cmd.two_args_of(|x| x.long == Some(l)) {
                 panic!(
                     "Command {}: Long option names must be unique for each argument, \
-                            but '--{}' is in use by both '{}' and '{}'{}",
+                        but '--{}' is in use by both '{}' and '{}'",
                     cmd.get_name(),
                     l,
-                    first.get_id(),
-                    second.get_id(),
-                    duplicate_tip(cmd, first, second)
+                    first.name,
+                    second.name
                 )
             }
         }
 
         // Short conflicts
-        if let Some(s) = arg.get_short() {
-            if let Some((first, second)) = cmd.two_args_of(|x| x.get_short() == Some(s)) {
+        if let Some(s) = arg.short {
+            if let Some((first, second)) = cmd.two_args_of(|x| x.short == Some(s)) {
                 panic!(
                     "Command {}: Short option names must be unique for each argument, \
-                            but '-{}' is in use by both '{}' and '{}'{}",
+                        but '-{}' is in use by both '{}' and '{}'",
                     cmd.get_name(),
                     s,
-                    first.get_id(),
-                    second.get_id(),
-                    duplicate_tip(cmd, first, second),
+                    first.name,
+                    second.name
                 )
             }
         }
@@ -133,16 +135,16 @@ pub(crate) fn assert_app(cmd: &Command) {
         // Index conflicts
         if let Some(idx) = arg.index {
             if let Some((first, second)) =
-                cmd.two_args_of(|x| x.is_positional() && x.get_index() == Some(idx))
+                cmd.two_args_of(|x| x.is_positional() && x.index == Some(idx))
             {
                 panic!(
                     "Command {}: Argument '{}' has the same index as '{}' \
                     and they are both positional arguments\n\n\t \
-                    Use `Arg::num_args(1..)` to allow one \
+                    Use Arg::multiple_values(true) to allow one \
                     positional argument to take multiple values",
                     cmd.get_name(),
-                    first.get_id(),
-                    second.get_id()
+                    first.name,
+                    second.name
                 )
             }
         }
@@ -151,70 +153,82 @@ pub(crate) fn assert_app(cmd: &Command) {
         for req in &arg.requires {
             assert!(
                 cmd.id_exists(&req.1),
-                "Command {}: Argument or group '{}' specified in 'requires*' for '{}' does not exist",
+                "Command {}: Argument or group '{:?}' specified in 'requires*' for '{}' does not exist",
                 cmd.get_name(),
                 req.1,
-                arg.get_id(),
+                arg.name,
             );
         }
 
         for req in &arg.r_ifs {
-            assert!(
-                !arg.is_required_set(),
-                "Argument {}: `required` conflicts with `required_if_eq*`",
-                arg.get_id()
-            );
+            #[cfg(feature = "unstable-v4")]
+            {
+                assert!(
+                    !arg.is_required_set(),
+                    "Argument {}: `required` conflicts with `required_if_eq*`",
+                    arg.name
+                );
+            }
             assert!(
                 cmd.id_exists(&req.0),
-                "Command {}: Argument or group '{}' specified in 'required_if_eq*' for '{}' does not exist",
+                "Command {}: Argument or group '{:?}' specified in 'required_if_eq*' for '{}' does not exist",
                     cmd.get_name(),
                 req.0,
-                arg.get_id()
+                arg.name
             );
         }
 
         for req in &arg.r_ifs_all {
-            assert!(
-                !arg.is_required_set(),
-                "Argument {}: `required` conflicts with `required_if_eq_all`",
-                arg.get_id()
-            );
+            #[cfg(feature = "unstable-v4")]
+            {
+                assert!(
+                    !arg.is_required_set(),
+                    "Argument {}: `required` conflicts with `required_if_eq_all`",
+                    arg.name
+                );
+            }
             assert!(
                 cmd.id_exists(&req.0),
-                "Command {}: Argument or group '{}' specified in 'required_if_eq_all' for '{}' does not exist",
+                "Command {}: Argument or group '{:?}' specified in 'required_if_eq_all' for '{}' does not exist",
                     cmd.get_name(),
                 req.0,
-                arg.get_id()
+                arg.name
             );
         }
 
         for req in &arg.r_unless {
-            assert!(
-                !arg.is_required_set(),
-                "Argument {}: `required` conflicts with `required_unless*`",
-                arg.get_id()
-            );
+            #[cfg(feature = "unstable-v4")]
+            {
+                assert!(
+                    !arg.is_required_set(),
+                    "Argument {}: `required` conflicts with `required_unless*`",
+                    arg.name
+                );
+            }
             assert!(
                 cmd.id_exists(req),
-                "Command {}: Argument or group '{}' specified in 'required_unless*' for '{}' does not exist",
+                "Command {}: Argument or group '{:?}' specified in 'required_unless*' for '{}' does not exist",
                     cmd.get_name(),
                 req,
-                arg.get_id(),
+                arg.name,
             );
         }
 
         for req in &arg.r_unless_all {
-            assert!(
-                !arg.is_required_set(),
-                "Argument {}: `required` conflicts with `required_unless*`",
-                arg.get_id()
-            );
+            #[cfg(feature = "unstable-v4")]
+            {
+                assert!(
+                    !arg.is_required_set(),
+                    "Argument {}: `required` conflicts with `required_unless*`",
+                    arg.name
+                );
+            }
             assert!(
                 cmd.id_exists(req),
-                "Command {}: Argument or group '{}' specified in 'required_unless*' for '{}' does not exist",
+                "Command {}: Argument or group '{:?}' specified in 'required_unless*' for '{}' does not exist",
                     cmd.get_name(),
                 req,
-                arg.get_id(),
+                arg.name,
             );
         }
 
@@ -222,36 +236,25 @@ pub(crate) fn assert_app(cmd: &Command) {
         for req in &arg.blacklist {
             assert!(
                 cmd.id_exists(req),
-                "Command {}: Argument or group '{}' specified in 'conflicts_with*' for '{}' does not exist",
+                "Command {}: Argument or group '{:?}' specified in 'conflicts_with*' for '{}' does not exist",
                     cmd.get_name(),
                 req,
-                arg.get_id(),
-            );
-        }
-
-        // overrides
-        for req in &arg.overrides {
-            assert!(
-                cmd.id_exists(req),
-                "Command {}: Argument or group '{}' specified in 'overrides_with*' for '{}' does not exist",
-                    cmd.get_name(),
-                req,
-                arg.get_id(),
+                arg.name,
             );
         }
 
         if arg.is_last_set() {
             assert!(
-                arg.get_long().is_none(),
+                arg.long.is_none(),
                 "Command {}: Flags or Options cannot have last(true) set. '{}' has both a long and last(true) set.",
                     cmd.get_name(),
-                arg.get_id()
+                arg.name
             );
             assert!(
-                arg.get_short().is_none(),
+                arg.short.is_none(),
                 "Command {}: Flags or Options cannot have last(true) set. '{}' has both a short and last(true) set.",
                     cmd.get_name(),
-                arg.get_id()
+                arg.name
             );
         }
 
@@ -259,7 +262,15 @@ pub(crate) fn assert_app(cmd: &Command) {
             !(arg.is_required_set() && arg.is_global_set()),
             "Command {}: Global arguments cannot be required.\n\n\t'{}' is marked as both global and required",
                     cmd.get_name(),
-            arg.get_id()
+            arg.name
+        );
+
+        // validators
+        assert!(
+            arg.validator.is_none() || arg.validator_os.is_none(),
+            "Command {}: Argument '{}' has both `validator` and `validator_os` set which is not allowed",
+                    cmd.get_name(),
+            arg.name
         );
 
         if arg.get_value_hint() == ValueHint::CommandWithArguments {
@@ -267,50 +278,42 @@ pub(crate) fn assert_app(cmd: &Command) {
                 arg.is_positional(),
                 "Command {}: Argument '{}' has hint CommandWithArguments and must be positional.",
                 cmd.get_name(),
-                arg.get_id()
+                arg.name
             );
 
             assert!(
-                arg.is_trailing_var_arg_set() || arg.is_last_set(),
-                "Command {}: Positional argument '{}' has hint CommandWithArguments, so Command must have `trailing_var_arg(true)` or `last(true)` set.",
+                cmd.is_trailing_var_arg_set(),
+                "Command {}: Positional argument '{}' has hint CommandWithArguments, so Command must have TrailingVarArg set.",
                     cmd.get_name(),
-                arg.get_id()
+                arg.name
             );
         }
     }
 
     for group in cmd.get_groups() {
-        let derive_hint = if cfg!(feature = "derive") {
-            " (note: `Args` implicitly creates `ArgGroup`s; disable with `#[group(skip)]`"
-        } else {
-            ""
-        };
-
         // Name conflicts
         assert!(
             cmd.get_groups().filter(|x| x.id == group.id).count() < 2,
-            "Command {}: Argument group name must be unique\n\n\t'{}' is already in use{}",
+            "Command {}: Argument group name must be unique\n\n\t'{}' is already in use",
             cmd.get_name(),
-            group.get_id(),
-            derive_hint
+            group.name,
         );
 
         // Groups should not have naming conflicts with Args
         assert!(
-            !cmd.get_arguments().any(|x| x.get_id() == group.get_id()),
-            "Command {}: Argument group name '{}' must not conflict with argument name{}",
+            !cmd.get_arguments().any(|x| x.id == group.id),
+            "Command {}: Argument group name '{}' must not conflict with argument name",
             cmd.get_name(),
-            group.get_id(),
-            derive_hint
+            group.name,
         );
 
         for arg in &group.args {
             // Args listed inside groups should exist
             assert!(
-                cmd.get_arguments().any(|x| x.get_id() == arg),
-                "Command {}: Argument group '{}' contains non-existent argument '{}'",
+                cmd.get_arguments().any(|x| x.id == *arg),
+                "Command {}: Argument group '{}' contains non-existent argument '{:?}'",
                 cmd.get_name(),
-                group.get_id(),
+                group.name,
                 arg
             );
         }
@@ -324,66 +327,25 @@ pub(crate) fn assert_app(cmd: &Command) {
     detect_duplicate_flags(&long_flags, "long");
     detect_duplicate_flags(&short_flags, "short");
 
-    let mut subs = FlatSet::new();
-    for sc in cmd.get_subcommands() {
-        assert!(
-            subs.insert(sc.get_name()),
-            "Command {}: command name `{}` is duplicated",
-            cmd.get_name(),
-            sc.get_name()
-        );
-        for alias in sc.get_all_aliases() {
-            assert!(
-                subs.insert(alias),
-                "Command {}: command `{}` alias `{}` is duplicated",
-                cmd.get_name(),
-                sc.get_name(),
-                alias
-            );
-        }
-    }
-
     _verify_positionals(cmd);
 
-    #[cfg(feature = "help")]
     if let Some(help_template) = cmd.get_help_template() {
         assert!(
-            !help_template.to_string().contains("{flags}"),
+            !help_template.contains("{flags}"),
             "Command {}: {}",
                     cmd.get_name(),
             "`{flags}` template variable was removed in clap3, they are now included in `{options}`",
         );
         assert!(
-            !help_template.to_string().contains("{unified}"),
+            !help_template.contains("{unified}"),
             "Command {}: {}",
             cmd.get_name(),
             "`{unified}` template variable was removed in clap3, use `{options}` instead"
         );
-        #[cfg(feature = "unstable-v5")]
-        assert!(
-            !help_template.to_string().contains("{bin}"),
-            "Command {}: {}",
-            cmd.get_name(),
-            "`{bin}` template variable was removed in clap5, use `{name}` instead"
-        )
     }
 
     cmd._panic_on_missing_help(cmd.is_help_expected_set());
     assert_app_flags(cmd);
-}
-
-fn duplicate_tip(cmd: &Command, first: &Arg, second: &Arg) -> &'static str {
-    if !cmd.is_disable_help_flag_set()
-        && (first.get_id() == Id::HELP || second.get_id() == Id::HELP)
-    {
-        " (call `cmd.disable_help_flag(true)` to remove the auto-generated `--help`)"
-    } else if !cmd.is_disable_version_flag_set()
-        && (first.get_id() == Id::VERSION || second.get_id() == Id::VERSION)
-    {
-        " (call `cmd.disable_version_flag(true)` to remove the auto-generated `--version`)"
-    } else {
-        ""
-    }
 }
 
 #[derive(Eq)]
@@ -471,8 +433,7 @@ fn assert_app_flags(cmd: &Command) {
 
                 $(
                     if !cmd.$b() {
-                        use std::fmt::Write;
-                        write!(&mut s, "  AppSettings::{} is required when AppSettings::{} is set.\n", std::stringify!($b), std::stringify!($a)).unwrap();
+                        s.push_str(&format!("  AppSettings::{} is required when AppSettings::{} is set.\n", std::stringify!($b), std::stringify!($a)));
                     }
                 )+
 
@@ -487,8 +448,7 @@ fn assert_app_flags(cmd: &Command) {
 
                 $(
                     if cmd.$b() {
-                        use std::fmt::Write;
-                        write!(&mut s, "  AppSettings::{} conflicts with AppSettings::{}.\n", std::stringify!($b), std::stringify!($a)).unwrap();
+                        s.push_str(&format!("  AppSettings::{} conflicts with AppSettings::{}.\n", std::stringify!($b), std::stringify!($a)));
                     }
                 )+
 
@@ -499,6 +459,7 @@ fn assert_app_flags(cmd: &Command) {
         };
     }
 
+    checker!(is_allow_invalid_utf8_for_external_subcommands_set requires is_allow_external_subcommands_set);
     checker!(is_multicall_set conflicts is_no_binary_name_set);
 }
 
@@ -535,35 +496,8 @@ fn _verify_positionals(cmd: &Command) -> bool {
         num_p
     );
 
-    for arg in cmd.get_arguments() {
-        if arg.index.unwrap_or(0) == highest_idx {
-            assert!(
-                !arg.is_trailing_var_arg_set() || !arg.is_last_set(),
-                "{}:{}: `Arg::trailing_var_arg` and `Arg::last` cannot be used together",
-                cmd.get_name(),
-                arg.get_id()
-            );
-
-            if arg.is_trailing_var_arg_set() {
-                assert!(
-                    arg.is_multiple(),
-                    "{}:{}: `Arg::trailing_var_arg` must accept multiple values",
-                    cmd.get_name(),
-                    arg.get_id()
-                );
-            }
-        } else {
-            assert!(
-                !arg.is_trailing_var_arg_set(),
-                "{}:{}: `Arg::trailing_var_arg` can only apply to last positional",
-                cmd.get_name(),
-                arg.get_id()
-            );
-        }
-    }
-
     // Next we verify that only the highest index has takes multiple arguments (if any)
-    let only_highest = |a: &Arg| a.is_multiple() && (a.get_index().unwrap_or(0) != highest_idx);
+    let only_highest = |a: &Arg| a.is_multiple() && (a.index.unwrap_or(0) != highest_idx);
     if cmd.get_positionals().any(only_highest) {
         // First we make sure if there is a positional that allows multiple values
         // the one before it (second to last) has one of these:
@@ -583,7 +517,7 @@ fn _verify_positionals(cmd: &Command) -> bool {
             || last.is_last_set();
         assert!(
             ok,
-            "When using a positional argument with `.num_args(1..)` that is *not the \
+            "When using a positional argument with .multiple_values(true) that is *not the \
                  last* positional argument, the last positional argument (i.e. the one \
                  with the highest index) *must* have .required(true) or .last(true) set."
         );
@@ -593,15 +527,18 @@ fn _verify_positionals(cmd: &Command) -> bool {
         assert!(
             ok,
             "Only the last positional argument, or second to last positional \
-                 argument may be set to `.num_args(1..)`"
+                 argument may be set to .multiple_values(true)"
         );
 
         // Next we check how many have both Multiple and not a specific number of values set
         let count = cmd
             .get_positionals()
             .filter(|p| {
-                p.is_multiple_values_set()
-                    && !p.get_num_args().expect(INTERNAL_ERROR_MSG).is_fixed()
+                #[allow(deprecated)]
+                {
+                    p.is_multiple_occurrences_set()
+                        || (p.is_multiple_values_set() && p.num_vals.is_none())
+                }
             })
             .count();
         let ok = count <= 1
@@ -611,7 +548,7 @@ fn _verify_positionals(cmd: &Command) -> bool {
                 && count == 2);
         assert!(
             ok,
-            "Only one positional argument with `.num_args(1..)` set is allowed per \
+            "Only one positional argument with .multiple_values(true) set is allowed per \
                  command, unless the second one also has .last(true) set"
         );
     }
@@ -630,8 +567,8 @@ fn _verify_positionals(cmd: &Command) -> bool {
                     "Found non-required positional argument with a lower \
                          index than a required positional argument by two or more: {:?} \
                          index {:?}",
-                    p.get_id(),
-                    p.get_index()
+                    p.name,
+                    p.index
                 );
             } else if p.is_required_set() && !p.is_last_set() {
                 // Args that .last(true) don't count since they can be required and have
@@ -659,8 +596,8 @@ fn _verify_positionals(cmd: &Command) -> bool {
                     p.is_required_set(),
                     "Found non-required positional argument with a lower \
                          index than a required positional argument: {:?} index {:?}",
-                    p.get_id(),
-                    p.get_index()
+                    p.name,
+                    p.index
                 );
             } else if p.is_required_set() && !p.is_last_set() {
                 // Args that .last(true) don't count since they can be required and have
@@ -694,21 +631,21 @@ fn _verify_positionals(cmd: &Command) -> bool {
 }
 
 fn assert_arg(arg: &Arg) {
-    debug!("Arg::_debug_asserts:{}", arg.get_id());
+    debug!("Arg::_debug_asserts:{}", arg.name);
 
     // Self conflict
     // TODO: this check should be recursive
     assert!(
-        !arg.blacklist.iter().any(|x| x == arg.get_id()),
+        !arg.blacklist.iter().any(|x| *x == arg.id),
         "Argument '{}' cannot conflict with itself",
-        arg.get_id(),
+        arg.name,
     );
 
     assert_eq!(
         arg.get_action().takes_values(),
         arg.is_takes_value_set(),
         "Argument `{}`'s selected action {:?} contradicts `takes_value`",
-        arg.get_id(),
+        arg.name,
         arg.get_action()
     );
     if let Some(action_type_id) = arg.get_action().value_type_id() {
@@ -716,7 +653,7 @@ fn assert_arg(arg: &Arg) {
             action_type_id,
             arg.get_value_parser().type_id(),
             "Argument `{}`'s selected action {:?} contradicts `value_parser` ({:?})",
-            arg.get_id(),
+            arg.name,
             arg.get_action(),
             arg.get_value_parser()
         );
@@ -726,14 +663,14 @@ fn assert_arg(arg: &Arg) {
         assert!(
             arg.is_takes_value_set(),
             "Argument '{}' has value hint but takes no value",
-            arg.get_id()
+            arg.name
         );
 
         if arg.get_value_hint() == ValueHint::CommandWithArguments {
             assert!(
                 arg.is_multiple_values_set(),
                 "Argument '{}' uses hint CommandWithArguments and must accept multiple values",
-                arg.get_id()
+                arg.name
             )
         }
     }
@@ -742,83 +679,41 @@ fn assert_arg(arg: &Arg) {
         assert!(
             arg.is_positional(),
             "Argument '{}' is a positional argument and can't have short or long name versions",
-            arg.get_id()
+            arg.name
         );
         assert!(
             arg.is_takes_value_set(),
-            "Argument '{}` is positional, it must take a value{}",
-            arg.get_id(),
-            if arg.get_id() == Id::HELP {
-                " (`mut_arg` no longer works with implicit `--help`)"
-            } else if arg.get_id() == Id::VERSION {
-                " (`mut_arg` no longer works with implicit `--version`)"
-            } else {
-                ""
-            }
+            "Argument '{}` is positional, it must take a value",
+            arg.name
         );
     }
 
-    let num_vals = arg.get_num_args().expect(INTERNAL_ERROR_MSG);
-    // This can be the cause of later asserts, so put this first
-    if num_vals != ValueRange::EMPTY {
-        // HACK: Don't check for flags to make the derive easier
+    #[cfg(feature = "unstable-v4")]
+    {
+        let num_vals = arg.get_num_vals().unwrap_or(usize::MAX);
         let num_val_names = arg.get_value_names().unwrap_or(&[]).len();
-        if num_vals.max_values() < num_val_names {
+        if num_vals < num_val_names {
             panic!(
-                "Argument {}: Too many value names ({}) compared to `num_args` ({})",
-                arg.get_id(),
-                num_val_names,
-                num_vals
+                "Argument {}: Too many value names ({}) compared to number_of_values ({})",
+                arg.name, num_val_names, num_vals
             );
         }
     }
 
-    assert_eq!(
-        num_vals.takes_values(),
-        arg.is_takes_value_set(),
-        "Argument {}: mismatch between `num_args` ({}) and `takes_value`",
-        arg.get_id(),
-        num_vals,
-    );
-    assert_eq!(
-        num_vals.is_multiple(),
-        arg.is_multiple_values_set(),
-        "Argument {}: mismatch between `num_args` ({}) and `multiple_values`",
-        arg.get_id(),
-        num_vals,
-    );
-
-    if 1 < num_vals.min_values() {
-        assert!(
-            !arg.is_require_equals_set(),
-            "Argument {}: cannot accept more than 1 arg (num_args={}) with require_equals",
-            arg.get_id(),
-            num_vals
-        );
-    }
-
-    if num_vals == ValueRange::SINGLE {
-        assert!(
-            !arg.is_multiple_values_set(),
-            "Argument {}: mismatch between `num_args` and `multiple_values`",
-            arg.get_id()
-        );
-    }
-
     assert_arg_flags(arg);
 
-    assert_defaults(arg, "default_value", arg.default_vals.iter());
+    assert_defaults(arg, "default_value", arg.default_vals.iter().copied());
     assert_defaults(
         arg,
         "default_missing_value",
-        arg.default_missing_vals.iter(),
+        arg.default_missing_vals.iter().copied(),
     );
     assert_defaults(
         arg,
         "default_value_if",
         arg.default_vals_ifs
             .iter()
-            .filter_map(|(_, _, default)| default.as_ref()),
+            .filter_map(|(_, _, default)| *default),
     );
 }
 
@@ -830,8 +725,7 @@ fn assert_arg_flags(arg: &Arg) {
 
                 $(
                     if !arg.$b() {
-                        use std::fmt::Write;
-                        write!(&mut s, "  Arg::{} is required when Arg::{} is set.\n", std::stringify!($b), std::stringify!($a)).unwrap();
+                        s.push_str(&format!("  Arg::{} is required when Arg::{} is set.\n", std::stringify!($b), std::stringify!($a)));
                     }
                 )+
 
@@ -842,22 +736,95 @@ fn assert_arg_flags(arg: &Arg) {
         }
     }
 
+    checker!(is_require_value_delimiter_set requires is_takes_value_set);
+    checker!(is_require_value_delimiter_set requires is_use_value_delimiter_set);
     checker!(is_hide_possible_values_set requires is_takes_value_set);
     checker!(is_allow_hyphen_values_set requires is_takes_value_set);
-    checker!(is_allow_negative_numbers_set requires is_takes_value_set);
     checker!(is_require_equals_set requires is_takes_value_set);
     checker!(is_last_set requires is_takes_value_set);
     checker!(is_hide_default_value_set requires is_takes_value_set);
     checker!(is_multiple_values_set requires is_takes_value_set);
     checker!(is_ignore_case_set requires is_takes_value_set);
+    {
+        #![allow(deprecated)]
+        checker!(is_forbid_empty_values_set requires is_takes_value_set);
+        checker!(is_allow_invalid_utf8_set requires is_takes_value_set);
+    }
 }
 
 fn assert_defaults<'d>(
     arg: &Arg,
     field: &'static str,
-    defaults: impl IntoIterator<Item = &'d OsStr>,
+    defaults: impl IntoIterator<Item = &'d std::ffi::OsStr>,
 ) {
     for default_os in defaults {
+        if let Some(default_s) = default_os.to_str() {
+            if !arg.possible_vals.is_empty() {
+                if let Some(delim) = arg.get_value_delimiter() {
+                    for part in default_s.split(delim) {
+                        assert!(
+                            arg.possible_vals.iter().any(|possible_val| {
+                                possible_val.matches(part, arg.is_ignore_case_set())
+                            }),
+                            "Argument `{}`'s {}={} doesn't match possible values",
+                            arg.name,
+                            field,
+                            part
+                        )
+                    }
+                } else {
+                    assert!(
+                        arg.possible_vals.iter().any(|possible_val| {
+                            possible_val.matches(default_s, arg.is_ignore_case_set())
+                        }),
+                        "Argument `{}`'s {}={} doesn't match possible values",
+                        arg.name,
+                        field,
+                        default_s
+                    );
+                }
+            }
+
+            if let Some(validator) = arg.validator.as_ref() {
+                let mut validator = validator.lock().unwrap();
+                if let Some(delim) = arg.get_value_delimiter() {
+                    for part in default_s.split(delim) {
+                        if let Err(err) = validator(part) {
+                            panic!(
+                                "Argument `{}`'s {}={} failed validation: {}",
+                                arg.name, field, part, err
+                            );
+                        }
+                    }
+                } else if let Err(err) = validator(default_s) {
+                    panic!(
+                        "Argument `{}`'s {}={} failed validation: {}",
+                        arg.name, field, default_s, err
+                    );
+                }
+            }
+        }
+
+        if let Some(validator) = arg.validator_os.as_ref() {
+            let mut validator = validator.lock().unwrap();
+            if let Some(delim) = arg.get_value_delimiter() {
+                let default_os = RawOsStr::new(default_os);
+                for part in default_os.split(delim) {
+                    if let Err(err) = validator(&part.to_os_str()) {
+                        panic!(
+                            "Argument `{}`'s {}={:?} failed validation: {}",
+                            arg.name, field, part, err
+                        );
+                    }
+                }
+            } else if let Err(err) = validator(default_os) {
+                panic!(
+                    "Argument `{}`'s {}={:?} failed validation: {}",
+                    arg.name, field, default_os, err
+                );
+            }
+        }
+
         let value_parser = arg.get_value_parser();
         let assert_cmd = Command::new("assert");
         if let Some(delim) = arg.get_value_delimiter() {
@@ -867,7 +834,7 @@ fn assert_defaults<'d>(
                 {
                     panic!(
                         "Argument `{}`'s {}={:?} failed validation: {}",
-                        arg.get_id(),
+                        arg.name,
                         field,
                         part.to_str_lossy(),
                         err
@@ -877,10 +844,7 @@ fn assert_defaults<'d>(
         } else if let Err(err) = value_parser.parse_ref(&assert_cmd, Some(arg), default_os) {
             panic!(
                 "Argument `{}`'s {}={:?} failed validation: {}",
-                arg.get_id(),
-                field,
-                default_os,
-                err
+                arg.name, field, default_os, err
             );
         }
     }

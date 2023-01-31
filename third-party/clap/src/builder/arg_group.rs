@@ -1,6 +1,8 @@
 // Internal
-use crate::builder::IntoResettable;
-use crate::util::Id;
+use crate::util::{Id, Key};
+
+#[cfg(feature = "yaml")]
+use yaml_rust::Yaml;
 
 /// Family of related [arguments].
 ///
@@ -35,14 +37,14 @@ use crate::util::Id;
 /// the arguments from the specified group is present at runtime.
 ///
 /// ```rust
-/// # use clap::{Command, arg, ArgGroup, error::ErrorKind};
+/// # use clap::{Command, arg, ArgGroup, ErrorKind};
 /// let result = Command::new("cmd")
-///     .arg(arg!(--"set-ver" <ver> "set the version manually"))
+///     .arg(arg!(--"set-ver" <ver> "set the version manually").required(false))
 ///     .arg(arg!(--major           "auto increase major"))
 ///     .arg(arg!(--minor           "auto increase minor"))
 ///     .arg(arg!(--patch           "auto increase patch"))
 ///     .group(ArgGroup::new("vers")
-///          .args(["set-ver", "major", "minor", "patch"])
+///          .args(&["set-ver", "major", "minor", "patch"])
 ///          .required(true))
 ///     .try_get_matches_from(vec!["cmd", "--major", "--patch"]);
 /// // Because we used two args in the group it's an error
@@ -50,30 +52,23 @@ use crate::util::Id;
 /// let err = result.unwrap_err();
 /// assert_eq!(err.kind(), ErrorKind::ArgumentConflict);
 /// ```
-///
 /// This next example shows a passing parse of the same scenario
+///
 /// ```rust
-/// # use clap::{Command, arg, ArgGroup, Id};
+/// # use clap::{Command, arg, ArgGroup};
 /// let result = Command::new("cmd")
-///     .arg(arg!(--"set-ver" <ver> "set the version manually"))
+///     .arg(arg!(--"set-ver" <ver> "set the version manually").required(false))
 ///     .arg(arg!(--major           "auto increase major"))
 ///     .arg(arg!(--minor           "auto increase minor"))
 ///     .arg(arg!(--patch           "auto increase patch"))
 ///     .group(ArgGroup::new("vers")
-///          .args(["set-ver", "major", "minor","patch"])
+///          .args(&["set-ver", "major", "minor","patch"])
 ///          .required(true))
 ///     .try_get_matches_from(vec!["cmd", "--major"]);
 /// assert!(result.is_ok());
 /// let matches = result.unwrap();
 /// // We may not know which of the args was used, so we can test for the group...
 /// assert!(matches.contains_id("vers"));
-/// // We can also ask the group which arg was used
-/// assert_eq!(matches
-///     .get_one::<Id>("vers")
-///     .expect("`vers` is required")
-///     .as_str(),
-///     "major"
-/// );
 /// // we could also alternatively check each arg individually (not shown here)
 /// ```
 /// [`ArgGroup::multiple(true)`]: ArgGroup::multiple()
@@ -82,9 +77,10 @@ use crate::util::Id;
 /// [arguments]: crate::Arg
 /// [conflict]: crate::Arg::conflicts_with()
 /// [requirement]: crate::Arg::requires()
-#[derive(Default, Clone, Debug, PartialEq, Eq)]
-pub struct ArgGroup {
+#[derive(Default, Debug, PartialEq, Eq)]
+pub struct ArgGroup<'help> {
     pub(crate) id: Id,
+    pub(crate) name: &'help str,
     pub(crate) args: Vec<Id>,
     pub(crate) required: bool,
     pub(crate) requires: Vec<Id>,
@@ -92,8 +88,14 @@ pub struct ArgGroup {
     pub(crate) multiple: bool,
 }
 
-/// # Builder
-impl ArgGroup {
+impl<'help> ArgGroup<'help> {
+    pub(crate) fn with_id(id: Id) -> Self {
+        ArgGroup {
+            id,
+            ..ArgGroup::default()
+        }
+    }
+
     /// Create a `ArgGroup` using a unique name.
     ///
     /// The name will be used to get values from the group or refer to the group inside of conflict
@@ -106,8 +108,8 @@ impl ArgGroup {
     /// ArgGroup::new("config")
     /// # ;
     /// ```
-    pub fn new(id: impl Into<Id>) -> Self {
-        ArgGroup::default().id(id)
+    pub fn new<S: Into<&'help str>>(n: S) -> Self {
+        ArgGroup::default().id(n)
     }
 
     /// Sets the group name.
@@ -116,13 +118,31 @@ impl ArgGroup {
     ///
     /// ```rust
     /// # use clap::{Command, ArgGroup};
-    /// ArgGroup::default().id("config")
+    /// ArgGroup::default().name("config")
     /// # ;
     /// ```
     #[must_use]
-    pub fn id(mut self, id: impl Into<Id>) -> Self {
-        self.id = id.into();
+    pub fn id<S: Into<&'help str>>(mut self, n: S) -> Self {
+        self.name = n.into();
+        self.id = Id::from(self.name);
         self
+    }
+
+    /// Deprecated, replaced with [`ArgGroup::id`]
+    ///
+    /// Builder: replaced `group.name(...)` with `group.id(...)`
+    #[cfg_attr(
+        feature = "deprecated",
+        deprecated(
+            since = "3.1.0",
+            note = "Replaced with `ArgGroup::id`
+
+Builder: replaced `group.name(...)` with `group.id(...)`
+"
+        )
+    )]
+    pub fn name<S: Into<&'help str>>(self, n: S) -> Self {
+        self.id(n)
     }
 
     /// Adds an [argument] to this group by name
@@ -130,14 +150,12 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup};
     /// let m = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .group(ArgGroup::new("req_flags")
     ///         .arg("flag")
     ///         .arg("color"))
@@ -149,12 +167,8 @@ impl ArgGroup {
     /// ```
     /// [argument]: crate::Arg
     #[must_use]
-    pub fn arg(mut self, arg_id: impl IntoResettable<Id>) -> Self {
-        if let Some(arg_id) = arg_id.into_resettable().into_option() {
-            self.args.push(arg_id);
-        } else {
-            self.args.clear();
-        }
+    pub fn arg<T: Key>(mut self, arg_id: T) -> Self {
+        self.args.push(arg_id.into());
         self
     }
 
@@ -163,16 +177,14 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup};
     /// let m = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"]))
+    ///         .args(&["flag", "color"]))
     ///     .get_matches_from(vec!["myprog", "-f"]);
     /// // maybe we don't know which of the two flags was used...
     /// assert!(m.contains_id("req_flags"));
@@ -181,28 +193,11 @@ impl ArgGroup {
     /// ```
     /// [arguments]: crate::Arg
     #[must_use]
-    pub fn args(mut self, ns: impl IntoIterator<Item = impl Into<Id>>) -> Self {
+    pub fn args<T: Key>(mut self, ns: &[T]) -> Self {
         for n in ns {
             self = self.arg(n);
         }
         self
-    }
-
-    /// Getters for all args. It will return a vector of `Id`
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use clap::{ArgGroup};
-    /// let args: Vec<&str> = vec!["a1".into(), "a4".into()];
-    /// let grp = ArgGroup::new("program").args(&args);
-    ///
-    /// for (pos, arg) in grp.get_args().enumerate() {
-    ///     assert_eq!(*arg, args[pos]);
-    /// }
-    /// ```
-    pub fn get_args(&self) -> impl Iterator<Item = &Id> {
-        self.args.iter()
     }
 
     /// Allows more than one of the [`Arg`]s in this group to be used. (Default: `false`)
@@ -213,16 +208,14 @@ impl ArgGroup {
     /// group
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup};
     /// let m = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"])
+    ///         .args(&["flag", "color"])
     ///         .multiple(true))
     ///     .get_matches_from(vec!["myprog", "-f", "-c"]);
     /// // maybe we don't know which of the two flags was used...
@@ -232,16 +225,14 @@ impl ArgGroup {
     /// an error if more than one of the args in the group was used.
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, error::ErrorKind, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup, ErrorKind};
     /// let result = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"]))
+    ///         .args(&["flag", "color"]))
     ///     .try_get_matches_from(vec!["myprog", "-f", "-c"]);
     /// // Because we used both args in the group it's an error
     /// assert!(result.is_err());
@@ -255,23 +246,6 @@ impl ArgGroup {
     pub fn multiple(mut self, yes: bool) -> Self {
         self.multiple = yes;
         self
-    }
-
-    /// Return true if the group allows more than one of the arguments
-    /// in this group to be used. (Default: `false`)
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use clap::{ArgGroup};
-    /// let mut group = ArgGroup::new("myprog")
-    ///     .args(["f", "c"])
-    ///     .multiple(true);
-    ///
-    /// assert!(group.is_multiple());
-    /// ```
-    pub fn is_multiple(&mut self) -> bool {
-        self.multiple
     }
 
     /// Require an argument from the group to be present when parsing.
@@ -290,16 +264,14 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, error::ErrorKind, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup, ErrorKind};
     /// let result = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"])
+    ///         .args(&["flag", "color"])
     ///         .required(true))
     ///     .try_get_matches_from(vec!["myprog"]);
     /// // Because we didn't use any of the args in the group, it's an error
@@ -329,19 +301,16 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, error::ErrorKind, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup, ErrorKind};
     /// let result = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .arg(Arg::new("debug")
-    ///         .short('d')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('d'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"])
+    ///         .args(&["flag", "color"])
     ///         .requires("debug"))
     ///     .try_get_matches_from(vec!["myprog", "-c"]);
     /// // because we used an arg from the group, and the group requires "-d" to be used, it's an
@@ -353,12 +322,8 @@ impl ArgGroup {
     /// [required group]: ArgGroup::required()
     /// [argument requirement rules]: crate::Arg::requires()
     #[must_use]
-    pub fn requires(mut self, id: impl IntoResettable<Id>) -> Self {
-        if let Some(id) = id.into_resettable().into_option() {
-            self.requires.push(id);
-        } else {
-            self.requires.clear();
-        }
+    pub fn requires<T: Key>(mut self, id: T) -> Self {
+        self.requires.push(id.into());
         self
     }
 
@@ -373,23 +338,19 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, error::ErrorKind, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup, ErrorKind};
     /// let result = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .arg(Arg::new("debug")
-    ///         .short('d')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('d'))
     ///     .arg(Arg::new("verb")
-    ///         .short('v')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('v'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"])
-    ///         .requires_all(["debug", "verb"]))
+    ///         .args(&["flag", "color"])
+    ///         .requires_all(&["debug", "verb"]))
     ///     .try_get_matches_from(vec!["myprog", "-c", "-d"]);
     /// // because we used an arg from the group, and the group requires "-d" and "-v" to be used,
     /// // yet we only used "-d" it's an error
@@ -398,9 +359,9 @@ impl ArgGroup {
     /// assert_eq!(err.kind(), ErrorKind::MissingRequiredArgument);
     /// ```
     /// [required group]: ArgGroup::required()
-    /// [argument requirement rules]: crate::Arg::requires_ifs()
+    /// [argument requirement rules]: crate::Arg::requires_all()
     #[must_use]
-    pub fn requires_all(mut self, ns: impl IntoIterator<Item = impl Into<Id>>) -> Self {
+    pub fn requires_all(mut self, ns: &[&'help str]) -> Self {
         for n in ns {
             self = self.requires(n);
         }
@@ -418,19 +379,16 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, error::ErrorKind, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup, ErrorKind};
     /// let result = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .arg(Arg::new("debug")
-    ///         .short('d')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('d'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"])
+    ///         .args(&["flag", "color"])
     ///         .conflicts_with("debug"))
     ///     .try_get_matches_from(vec!["myprog", "-c", "-d"]);
     /// // because we used an arg from the group, and the group conflicts with "-d", it's an error
@@ -440,12 +398,8 @@ impl ArgGroup {
     /// ```
     /// [argument exclusion rules]: crate::Arg::conflicts_with()
     #[must_use]
-    pub fn conflicts_with(mut self, id: impl IntoResettable<Id>) -> Self {
-        if let Some(id) = id.into_resettable().into_option() {
-            self.conflicts.push(id);
-        } else {
-            self.conflicts.clear();
-        }
+    pub fn conflicts_with<T: Key>(mut self, id: T) -> Self {
+        self.conflicts.push(id.into());
         self
     }
 
@@ -459,23 +413,19 @@ impl ArgGroup {
     /// # Examples
     ///
     /// ```rust
-    /// # use clap::{Command, Arg, ArgGroup, error::ErrorKind, ArgAction};
+    /// # use clap::{Command, Arg, ArgGroup, ErrorKind};
     /// let result = Command::new("myprog")
     ///     .arg(Arg::new("flag")
-    ///         .short('f')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('f'))
     ///     .arg(Arg::new("color")
-    ///         .short('c')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('c'))
     ///     .arg(Arg::new("debug")
-    ///         .short('d')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('d'))
     ///     .arg(Arg::new("verb")
-    ///         .short('v')
-    ///         .action(ArgAction::SetTrue))
+    ///         .short('v'))
     ///     .group(ArgGroup::new("req_flags")
-    ///         .args(["flag", "color"])
-    ///         .conflicts_with_all(["debug", "verb"]))
+    ///         .args(&["flag", "color"])
+    ///         .conflicts_with_all(&["debug", "verb"]))
     ///     .try_get_matches_from(vec!["myprog", "-c", "-v"]);
     /// // because we used an arg from the group, and the group conflicts with either "-v" or "-d"
     /// // it's an error
@@ -486,56 +436,129 @@ impl ArgGroup {
     ///
     /// [argument exclusion rules]: crate::Arg::conflicts_with_all()
     #[must_use]
-    pub fn conflicts_with_all(mut self, ns: impl IntoIterator<Item = impl Into<Id>>) -> Self {
+    pub fn conflicts_with_all(mut self, ns: &[&'help str]) -> Self {
         for n in ns {
             self = self.conflicts_with(n);
         }
         self
     }
-}
 
-/// # Reflection
-impl ArgGroup {
-    /// Get the name of the group
-    #[inline]
-    pub fn get_id(&self) -> &Id {
-        &self.id
+    /// Deprecated, replaced with [`ArgGroup::new`]
+    #[cfg_attr(
+        feature = "deprecated",
+        deprecated(since = "3.0.0", note = "Replaced with `ArgGroup::new`")
+    )]
+    #[doc(hidden)]
+    pub fn with_name<S: Into<&'help str>>(n: S) -> Self {
+        Self::new(n)
     }
 
-    /// Reports whether [`ArgGroup::required`] is set
-    #[inline]
-    pub fn is_required_set(&self) -> bool {
-        self.required
+    /// Deprecated in [Issue #3087](https://github.com/clap-rs/clap/issues/3087), maybe [`clap::Parser`][crate::Parser] would fit your use case?
+    #[cfg(feature = "yaml")]
+    #[cfg_attr(
+        feature = "deprecated",
+        deprecated(
+            since = "3.0.0",
+            note = "Maybe clap::Parser would fit your use case? (Issue #3087)"
+        )
+    )]
+    #[doc(hidden)]
+    pub fn from_yaml(yaml: &'help Yaml) -> Self {
+        Self::from(yaml)
     }
 }
 
-impl From<&'_ ArgGroup> for ArgGroup {
-    fn from(g: &ArgGroup) -> Self {
-        g.clone()
+impl<'help> From<&'_ ArgGroup<'help>> for ArgGroup<'help> {
+    fn from(g: &ArgGroup<'help>) -> Self {
+        ArgGroup {
+            id: g.id.clone(),
+            name: g.name,
+            required: g.required,
+            args: g.args.clone(),
+            requires: g.requires.clone(),
+            conflicts: g.conflicts.clone(),
+            multiple: g.multiple,
+        }
+    }
+}
+
+/// Deprecated in [Issue #3087](https://github.com/clap-rs/clap/issues/3087), maybe [`clap::Parser`][crate::Parser] would fit your use case?
+#[cfg(feature = "yaml")]
+impl<'help> From<&'help Yaml> for ArgGroup<'help> {
+    /// Deprecated in [Issue #3087](https://github.com/clap-rs/clap/issues/3087), maybe [`clap::Parser`][crate::Parser] would fit your use case?
+    fn from(y: &'help Yaml) -> Self {
+        let b = y.as_hash().expect("ArgGroup::from::<Yaml> expects a table");
+        // We WANT this to panic on error...so expect() is good.
+        let mut a = ArgGroup::default();
+        let group_settings = if b.len() == 1 {
+            let name_yaml = b.keys().next().expect("failed to get name");
+            let name_str = name_yaml
+                .as_str()
+                .expect("failed to convert arg YAML name to str");
+            a.name = name_str;
+            a.id = Id::from(&a.name);
+            b.get(name_yaml)
+                .expect("failed to get name_str")
+                .as_hash()
+                .expect("failed to convert to a hash")
+        } else {
+            b
+        };
+
+        for (k, v) in group_settings {
+            a = match k.as_str().unwrap() {
+                "required" => a.required(v.as_bool().unwrap()),
+                "multiple" => a.multiple(v.as_bool().unwrap()),
+                "args" => yaml_vec_or_str!(a, v, arg),
+                "arg" => {
+                    if let Some(ys) = v.as_str() {
+                        a = a.arg(ys);
+                    }
+                    a
+                }
+                "requires" => yaml_vec_or_str!(a, v, requires),
+                "conflicts_with" => yaml_vec_or_str!(a, v, conflicts_with),
+                "name" => {
+                    if let Some(ys) = v.as_str() {
+                        a = a.id(ys);
+                    }
+                    a
+                }
+                s => panic!(
+                    "Unknown ArgGroup setting '{}' in YAML file for \
+                     ArgGroup '{}'",
+                    s, a.name
+                ),
+            }
+        }
+
+        a
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::ArgGroup;
+    #[cfg(feature = "yaml")]
+    use yaml_rust::YamlLoader;
 
     #[test]
     fn groups() {
         let g = ArgGroup::new("test")
             .arg("a1")
             .arg("a4")
-            .args(["a2", "a3"])
+            .args(&["a2", "a3"])
             .required(true)
             .conflicts_with("c1")
-            .conflicts_with_all(["c2", "c3"])
+            .conflicts_with_all(&["c2", "c3"])
             .conflicts_with("c4")
             .requires("r1")
-            .requires_all(["r2", "r3"])
+            .requires_all(&["r2", "r3"])
             .requires("r4");
 
-        let args: Vec<Id> = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
-        let reqs: Vec<Id> = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
-        let confs: Vec<Id> = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
+        let args = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
+        let reqs = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
+        let confs = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
 
         assert_eq!(g.args, args);
         assert_eq!(g.requires, reqs);
@@ -547,23 +570,52 @@ mod test {
         let g = ArgGroup::new("test")
             .arg("a1")
             .arg("a4")
-            .args(["a2", "a3"])
+            .args(&["a2", "a3"])
             .required(true)
             .conflicts_with("c1")
-            .conflicts_with_all(["c2", "c3"])
+            .conflicts_with_all(&["c2", "c3"])
             .conflicts_with("c4")
             .requires("r1")
-            .requires_all(["r2", "r3"])
+            .requires_all(&["r2", "r3"])
             .requires("r4");
 
-        let args: Vec<Id> = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
-        let reqs: Vec<Id> = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
-        let confs: Vec<Id> = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
+        let args = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
+        let reqs = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
+        let confs = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
 
         let g2 = ArgGroup::from(&g);
         assert_eq!(g2.args, args);
         assert_eq!(g2.requires, reqs);
         assert_eq!(g2.conflicts, confs);
+    }
+
+    #[cfg(feature = "yaml")]
+    #[test]
+    fn test_yaml() {
+        let g_yaml = "name: test
+args:
+- a1
+- a4
+- a2
+- a3
+conflicts_with:
+- c1
+- c2
+- c3
+- c4
+requires:
+- r1
+- r2
+- r3
+- r4";
+        let yaml = &YamlLoader::load_from_str(g_yaml).expect("failed to load YAML file")[0];
+        let g = ArgGroup::from(yaml);
+        let args = vec!["a1".into(), "a4".into(), "a2".into(), "a3".into()];
+        let reqs = vec!["r1".into(), "r2".into(), "r3".into(), "r4".into()];
+        let confs = vec!["c1".into(), "c2".into(), "c3".into(), "c4".into()];
+        assert_eq!(g.args, args);
+        assert_eq!(g.requires, reqs);
+        assert_eq!(g.conflicts, confs);
     }
 
     // This test will *fail to compile* if ArgGroup is not Send + Sync
@@ -572,25 +624,18 @@ mod test {
         fn foo<T: Send + Sync>(_: T) {}
         foo(ArgGroup::new("test"))
     }
+}
 
-    #[test]
-    fn arg_group_expose_is_multiple_helper() {
-        let args: Vec<Id> = vec!["a1".into(), "a4".into()];
-
-        let mut grp_multiple = ArgGroup::new("test_multiple").args(&args).multiple(true);
-        assert!(grp_multiple.is_multiple());
-
-        let mut grp_not_multiple = ArgGroup::new("test_multiple").args(&args).multiple(false);
-        assert!(!grp_not_multiple.is_multiple());
-    }
-
-    #[test]
-    fn arg_group_expose_get_args_helper() {
-        let args: Vec<Id> = vec!["a1".into(), "a4".into()];
-        let grp = ArgGroup::new("program").args(&args);
-
-        for (pos, arg) in grp.get_args().enumerate() {
-            assert_eq!(*arg, args[pos]);
+impl Clone for ArgGroup<'_> {
+    fn clone(&self) -> Self {
+        ArgGroup {
+            id: self.id.clone(),
+            name: self.name,
+            required: self.required,
+            args: self.args.clone(),
+            requires: self.requires.clone(),
+            conflicts: self.conflicts.clone(),
+            multiple: self.multiple,
         }
     }
 }

@@ -208,6 +208,7 @@
 //! ```
 //! use once_cell::sync::OnceCell;
 //!
+//! #[derive(Debug)]
 //! pub struct LateInit<T> { cell: OnceCell<T> }
 //!
 //! impl<T> LateInit<T> {
@@ -227,24 +228,22 @@
 //!     }
 //! }
 //!
-//! #[derive(Default)]
+//! #[derive(Default, Debug)]
 //! struct A<'a> {
 //!     b: LateInit<&'a B<'a>>,
 //! }
 //!
-//! #[derive(Default)]
+//! #[derive(Default, Debug)]
 //! struct B<'a> {
 //!     a: LateInit<&'a A<'a>>
 //! }
-//!
 //!
 //! fn build_cycle() {
 //!     let a = A::default();
 //!     let b = B::default();
 //!     a.b.init(&b);
 //!     b.a.init(&a);
-//!     
-//!     let _a = &a.b.a.b.a;
+//!     println!("{:?}", a.b.a.b.a);
 //! }
 //! ```
 //!
@@ -316,10 +315,6 @@
 //!
 //! No, but you can use [`async_once_cell`](https://crates.io/crates/async_once_cell) instead.
 //!
-//! **Can I bring my own mutex?**
-//!
-//! There is [generic_once_cell](https://crates.io/crates/generic_once_cell) to allow just that.
-//!
 //! # Related crates
 //!
 //! * [double-checked-cell](https://github.com/niklasf/double-checked-cell)
@@ -328,7 +323,6 @@
 //! * [mitochondria](https://crates.io/crates/mitochondria)
 //! * [lazy_static](https://crates.io/crates/lazy_static)
 //! * [async_once_cell](https://crates.io/crates/async_once_cell)
-//! * [generic_once_cell](https://crates.io/crates/generic_once_cell) (bring your own mutex)
 //!
 //! Most of this crate's functionality is available in `std` in nightly Rust.
 //! See the [tracking issue](https://github.com/rust-lang/rust/issues/74465).

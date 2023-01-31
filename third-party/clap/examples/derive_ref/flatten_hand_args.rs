@@ -35,7 +35,7 @@ impl FromArgMatches for CliArgs {
 }
 
 impl Args for CliArgs {
-    fn augment_args(cmd: Command) -> Command {
+    fn augment_args(cmd: Command<'_>) -> Command<'_> {
         cmd.arg(
             Arg::new("foo")
                 .short('f')
@@ -48,14 +48,9 @@ impl Args for CliArgs {
                 .long("bar")
                 .action(ArgAction::SetTrue),
         )
-        .arg(
-            Arg::new("quuz")
-                .short('q')
-                .long("quuz")
-                .action(ArgAction::Set),
-        )
+        .arg(Arg::new("quuz").short('q').long("quuz").takes_value(true))
     }
-    fn augment_args_for_update(cmd: Command) -> Command {
+    fn augment_args_for_update(cmd: Command<'_>) -> Command<'_> {
         cmd.arg(
             Arg::new("foo")
                 .short('f')
@@ -68,20 +63,15 @@ impl Args for CliArgs {
                 .long("bar")
                 .action(ArgAction::SetTrue),
         )
-        .arg(
-            Arg::new("quuz")
-                .short('q')
-                .long("quuz")
-                .action(ArgAction::Set),
-        )
+        .arg(Arg::new("quuz").short('q').long("quuz").takes_value(true))
     }
 }
 
 #[derive(Parser, Debug)]
 struct Cli {
-    #[arg(short, long)]
+    #[clap(short, long, action)]
     top_level: bool,
-    #[command(flatten)]
+    #[clap(flatten)]
     more_args: CliArgs,
 }
 

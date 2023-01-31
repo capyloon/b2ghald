@@ -229,14 +229,10 @@ impl RawArgs {
     }
 
     /// Inject arguments before the [`RawArgs::next`]
-    pub fn insert(
-        &mut self,
-        cursor: &ArgCursor,
-        insert_items: impl IntoIterator<Item = impl Into<OsString>>,
-    ) {
+    pub fn insert(&mut self, cursor: &ArgCursor, insert_items: &[&str]) {
         self.items.splice(
             cursor.cursor..cursor.cursor,
-            insert_items.into_iter().map(Into::into),
+            insert_items.iter().map(OsString::from),
         );
     }
 

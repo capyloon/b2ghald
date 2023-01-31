@@ -1,29 +1,31 @@
 ```console
 $ 04_02_parse --help
+clap [..]
 A simple to use, efficient, and full-featured Command Line Argument Parser
 
-Usage: 04_02_parse[EXE] <PORT>
+USAGE:
+    04_02_parse[EXE] <PORT>
 
-Arguments:
-  <PORT>  Network port to use
+ARGS:
+    <PORT>    Network port to use
 
-Options:
-  -h, --help     Print help
-  -V, --version  Print version
+OPTIONS:
+    -h, --help       Print help information
+    -V, --version    Print version information
 
 $ 04_02_parse 22
 PORT = 22
 
 $ 04_02_parse foobar
 ? failed
-error: invalid value 'foobar' for '<PORT>': invalid digit found in string
+error: Invalid value "foobar" for '<PORT>': invalid digit found in string
 
-For more information, try '--help'.
+For more information try --help
 
 $ 04_02_parse_derive 0
 ? failed
-error: invalid value '0' for '<PORT>': 0 is not in 1..=65535
+error: Invalid value "0" for '<PORT>': 0 is not in 1..=65535
 
-For more information, try '--help'.
+For more information try --help
 
 ```

@@ -1,5 +1,3 @@
-#[cfg(span_locations)]
-use crate::location::LineColumn;
 use crate::parse::{self, Cursor};
 use crate::rcvec::{RcVec, RcVecBuilder, RcVecIntoIter, RcVecMut};
 use crate::{Delimiter, Spacing, TokenTree};
@@ -332,6 +330,12 @@ impl Debug for SourceFile {
             .field("is_real", &self.is_real())
             .finish()
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct LineColumn {
+    pub line: usize,
+    pub column: usize,
 }
 
 #[cfg(span_locations)]

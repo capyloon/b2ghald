@@ -2,7 +2,7 @@ use clap::{arg, Args, Command, FromArgMatches as _};
 
 #[derive(Args, Debug)]
 struct DerivedArgs {
-    #[arg(short, long)]
+    #[clap(short, long, action)]
     derived: bool,
 }
 

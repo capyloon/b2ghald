@@ -1,20 +1,16 @@
 #![allow(clippy::single_component_path_imports)]
 
-pub(crate) mod flat_map;
-pub(crate) mod flat_set;
+mod fnv;
 mod graph;
 mod id;
 mod str_to_bool;
 
-pub use self::id::Id;
+pub use self::fnv::Key;
 
-pub(crate) use self::flat_map::Entry;
-pub(crate) use self::flat_map::FlatMap;
-pub(crate) use self::flat_set::FlatSet;
-pub(crate) use self::graph::ChildGraph;
 pub(crate) use self::str_to_bool::str_to_bool;
 pub(crate) use self::str_to_bool::FALSE_LITERALS;
 pub(crate) use self::str_to_bool::TRUE_LITERALS;
+pub(crate) use self::{graph::ChildGraph, id::Id};
 
 pub(crate) mod color;
 

@@ -1,7 +1,8 @@
 use std::iter::Iterator;
 use std::ops::Index;
+use std::{ffi::OsStr, ffi::OsString};
 
-use crate::builder::OsStr;
+use crate::util::Id;
 use crate::Arg;
 use crate::INTERNAL_ERROR_MSG;
 
@@ -12,9 +13,9 @@ pub(crate) struct Key {
 }
 
 #[derive(Default, PartialEq, Eq, Debug, Clone)]
-pub(crate) struct MKeyMap {
+pub(crate) struct MKeyMap<'help> {
     /// All of the arguments.
-    args: Vec<Arg>,
+    args: Vec<Arg<'help>>,
 
     // Cache part:
     /// Will be set after `_build()`.
@@ -24,7 +25,7 @@ pub(crate) struct MKeyMap {
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub(crate) enum KeyType {
     Short(char),
-    Long(OsStr),
+    Long(OsString),
     Position(usize),
 }
 
@@ -79,7 +80,7 @@ impl PartialEq<char> for KeyType {
     }
 }
 
-impl MKeyMap {
+impl<'help> MKeyMap<'help> {
     /// If any arg has corresponding key in this map, we can search the key with
     /// u64(for positional argument), char(for short flag), &str and OsString
     /// (for long flag)
@@ -90,15 +91,20 @@ impl MKeyMap {
         self.keys.iter().any(|x| x.key == key)
     }
 
+    /// Reserves capacity for at least additional more elements to be inserted
+    pub(crate) fn reserve(&mut self, additional: usize) {
+        self.args.reserve(additional);
+    }
+
     /// Push an argument in the map.
-    pub(crate) fn push(&mut self, new_arg: Arg) {
+    pub(crate) fn push(&mut self, new_arg: Arg<'help>) {
         self.args.push(new_arg);
     }
 
     /// Find the arg have corresponding key in this map, we can search the key
     /// with u64(for positional argument), char(for short flag), &str and
     /// OsString (for long flag)
-    pub(crate) fn get<K: ?Sized>(&self, key: &K) -> Option<&Arg>
+    pub(crate) fn get<K: ?Sized>(&self, key: &K) -> Option<&Arg<'help>>
     where
         KeyType: PartialEq<K>,
     {
@@ -108,18 +114,23 @@ impl MKeyMap {
             .map(|k| &self.args[k.index])
     }
 
+    /// Find out if the map have no arg.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.args.is_empty()
+    }
+
     /// Return iterators of all keys.
     pub(crate) fn keys(&self) -> impl Iterator<Item = &KeyType> {
         self.keys.iter().map(|x| &x.key)
     }
 
     /// Return iterators of all args.
-    pub(crate) fn args(&self) -> impl Iterator<Item = &Arg> {
+    pub(crate) fn args(&self) -> impl Iterator<Item = &Arg<'help>> {
         self.args.iter()
     }
 
     /// Return mutable iterators of all args.
-    pub(crate) fn args_mut(&mut self) -> impl Iterator<Item = &mut Arg> {
+    pub(crate) fn args_mut<'map>(&'map mut self) -> impl Iterator<Item = &'map mut Arg<'help>> {
         self.args.iter_mut()
     }
 
@@ -133,17 +144,22 @@ impl MKeyMap {
 
     /// Remove an arg in the graph by Id, usually used by `mut_arg`. Return
     /// `Some(arg)` if removed.
-    pub(crate) fn remove_by_name(&mut self, name: &str) -> Option<Arg> {
+    pub(crate) fn remove_by_name(&mut self, name: &Id) -> Option<Arg<'help>> {
         self.args
             .iter()
-            .position(|arg| arg.id == name)
+            .position(|arg| &arg.id == name)
             // since it's a cold function, using this wouldn't hurt much
             .map(|i| self.args.remove(i))
     }
+
+    /// Remove an arg based on index
+    pub(crate) fn remove(&mut self, index: usize) -> Arg<'help> {
+        self.args.remove(index)
+    }
 }
 
-impl Index<&'_ KeyType> for MKeyMap {
-    type Output = Arg;
+impl<'help> Index<&'_ KeyType> for MKeyMap<'help> {
+    type Output = Arg<'help>;
 
     fn index(&self, key: &KeyType) -> &Self::Output {
         self.get(key).expect(INTERNAL_ERROR_MSG)
@@ -160,8 +176,8 @@ fn append_keys(keys: &mut Vec<Key>, arg: &Arg, index: usize) {
             let key = KeyType::Short(short);
             keys.push(Key { key, index });
         }
-        if let Some(long) = arg.long.clone() {
-            let key = KeyType::Long(long.into());
+        if let Some(long) = arg.long {
+            let key = KeyType::Long(OsString::from(long));
             keys.push(Key { key, index });
         }
 
@@ -170,7 +186,7 @@ fn append_keys(keys: &mut Vec<Key>, arg: &Arg, index: usize) {
             keys.push(Key { key, index });
         }
         for (long, _) in arg.aliases.iter() {
-            let key = KeyType::Long(long.into());
+            let key = KeyType::Long(OsString::from(long));
             keys.push(Key { key, index });
         }
     }

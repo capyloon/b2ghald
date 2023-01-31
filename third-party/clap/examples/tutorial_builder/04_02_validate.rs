@@ -28,7 +28,7 @@ fn port_in_range(s: &str) -> Result<u16, String> {
         Ok(port as u16)
     } else {
         Err(format!(
-            "port not in range {}-{}",
+            "Port not in range {}-{}",
             PORT_RANGE.start(),
             PORT_RANGE.end()
         ))

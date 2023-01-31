@@ -1,16 +1,16 @@
 use clap::Parser;
 
 #[derive(Parser)] // requires `derive` feature
-#[command(name = "cargo")]
-#[command(bin_name = "cargo")]
+#[clap(name = "cargo")]
+#[clap(bin_name = "cargo")]
 enum Cargo {
     ExampleDerive(ExampleDerive),
 }
 
 #[derive(clap::Args)]
-#[command(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None)]
 struct ExampleDerive {
-    #[arg(long)]
+    #[clap(long, value_parser)]
     manifest_path: Option<std::path::PathBuf>,
 }
 

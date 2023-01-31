@@ -13,9 +13,12 @@ fn main() {
             .required(false)
             .value_parser(value_parser!(PathBuf)),
         )
-        .arg(arg!(
-            -d --debug ... "Turn debugging information on"
-        ))
+        .arg(
+            arg!(
+                -d --debug "Turn debugging information on"
+            )
+            .action(ArgAction::Count),
+        )
         .subcommand(
             Command::new("test")
                 .about("does testing things")
@@ -48,7 +51,7 @@ fn main() {
     // matches just as you would the top level cmd
     if let Some(matches) = matches.subcommand_matches("test") {
         // "$ myapp test" was run
-        if matches.get_flag("list") {
+        if *matches.get_one::<bool>("list").expect("defaulted by clap") {
             // "$ myapp test -l" was run
             println!("Printing testing lists...");
         } else {

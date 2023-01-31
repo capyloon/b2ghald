@@ -1,11 +1,11 @@
 use clap::Parser;
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)] // Read from `Cargo.toml`
+#[clap(author, version, about, long_about = None)] // Read from `Cargo.toml`
 struct Cli {
-    #[arg(long)]
+    #[clap(long, value_parser)]
     two: String,
-    #[arg(long)]
+    #[clap(long, value_parser)]
     one: String,
 }
 

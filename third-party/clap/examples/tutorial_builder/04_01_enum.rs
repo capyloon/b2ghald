@@ -6,16 +6,16 @@ enum Mode {
     Slow,
 }
 
-// Can also be derived with feature flag `derive`
+// Can also be derived] with feature flag `derive`
 impl ValueEnum for Mode {
     fn value_variants<'a>() -> &'a [Self] {
         &[Mode::Fast, Mode::Slow]
     }
 
-    fn to_possible_value<'a>(&self) -> Option<PossibleValue> {
+    fn to_possible_value<'a>(&self) -> Option<PossibleValue<'a>> {
         Some(match self {
-            Mode::Fast => PossibleValue::new("fast").help("Run swiftly"),
-            Mode::Slow => PossibleValue::new("slow").help("Crawl slowly but steadily"),
+            Mode::Fast => PossibleValue::new("fast"),
+            Mode::Slow => PossibleValue::new("slow"),
         })
     }
 }
@@ -38,7 +38,7 @@ impl std::str::FromStr for Mode {
                 return Ok(*variant);
             }
         }
-        Err(format!("invalid variant: {}", s))
+        Err(format!("Invalid variant: {}", s))
     }
 }
 

@@ -1,5 +1,9 @@
-use crate::builder::StyledStr;
 use crate::util::color::ColorChoice;
+
+use std::{
+    fmt::{self, Display, Formatter},
+    io::{self, Write},
+};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Stream {
@@ -12,29 +16,51 @@ pub(crate) struct Colorizer {
     stream: Stream,
     #[allow(unused)]
     color_when: ColorChoice,
-    content: StyledStr,
+    pieces: Vec<(String, Style)>,
 }
 
 impl Colorizer {
+    #[inline(never)]
     pub(crate) fn new(stream: Stream, color_when: ColorChoice) -> Self {
         Colorizer {
             stream,
             color_when,
-            content: Default::default(),
+            pieces: vec![],
         }
     }
 
-    pub(crate) fn with_content(mut self, content: StyledStr) -> Self {
-        self.content = content;
-        self
+    #[inline(never)]
+    pub(crate) fn good(&mut self, msg: impl Into<String>) {
+        self.pieces.push((msg.into(), Style::Good));
+    }
+
+    #[inline(never)]
+    pub(crate) fn warning(&mut self, msg: impl Into<String>) {
+        self.pieces.push((msg.into(), Style::Warning));
+    }
+
+    #[inline(never)]
+    pub(crate) fn error(&mut self, msg: impl Into<String>) {
+        self.pieces.push((msg.into(), Style::Error));
+    }
+
+    #[inline(never)]
+    #[allow(dead_code)]
+    pub(crate) fn hint(&mut self, msg: impl Into<String>) {
+        self.pieces.push((msg.into(), Style::Hint));
+    }
+
+    #[inline(never)]
+    pub(crate) fn none(&mut self, msg: impl Into<String>) {
+        self.pieces.push((msg.into(), Style::Default));
     }
 }
 
 /// Printing methods.
 impl Colorizer {
     #[cfg(feature = "color")]
-    pub(crate) fn print(&self) -> std::io::Result<()> {
-        use termcolor::{BufferWriter, ColorChoice as DepColorChoice};
+    pub(crate) fn print(&self) -> io::Result<()> {
+        use termcolor::{BufferWriter, ColorChoice as DepColorChoice, ColorSpec, WriteColor};
 
         let color_when = match self.color_when {
             ColorChoice::Always => DepColorChoice::Always,
@@ -48,14 +74,36 @@ impl Colorizer {
         };
 
         let mut buffer = writer.buffer();
-        ok!(self.content.write_colored(&mut buffer));
+
+        for piece in &self.pieces {
+            let mut color = ColorSpec::new();
+            match piece.1 {
+                Style::Good => {
+                    color.set_fg(Some(termcolor::Color::Green));
+                }
+                Style::Warning => {
+                    color.set_fg(Some(termcolor::Color::Yellow));
+                }
+                Style::Error => {
+                    color.set_fg(Some(termcolor::Color::Red));
+                    color.set_bold(true);
+                }
+                Style::Hint => {
+                    color.set_dimmed(true);
+                }
+                Style::Default => {}
+            }
+
+            buffer.set_color(&color)?;
+            buffer.write_all(piece.0.as_bytes())?;
+            buffer.reset()?;
+        }
+
         writer.print(&buffer)
     }
 
     #[cfg(not(feature = "color"))]
-    pub(crate) fn print(&self) -> std::io::Result<()> {
-        use std::io::Write;
-
+    pub(crate) fn print(&self) -> io::Result<()> {
         // [e]println can't be used here because it panics
         // if something went wrong. We don't want that.
         match self.stream {
@@ -74,17 +122,37 @@ impl Colorizer {
 }
 
 /// Color-unaware printing. Never uses coloring.
-impl std::fmt::Display for Colorizer {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.content.fmt(f)
+impl Display for Colorizer {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        for piece in &self.pieces {
+            Display::fmt(&piece.0, f)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Style {
+    Good,
+    Warning,
+    Error,
+    Hint,
+    Default,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self::Default
     }
 }
 
 #[cfg(feature = "color")]
 fn is_a_tty(stream: Stream) -> bool {
-    use is_terminal::IsTerminal;
-    match stream {
-        Stream::Stdout => std::io::stdout().is_terminal(),
-        Stream::Stderr => std::io::stderr().is_terminal(),
-    }
+    let stream = match stream {
+        Stream::Stdout => atty::Stream::Stdout,
+        Stream::Stderr => atty::Stream::Stderr,
+    };
+
+    atty::is(stream)
 }

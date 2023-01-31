@@ -6,24 +6,29 @@ mimicking cargo's interface.
 The help looks like:
 ```console
 $ cargo-example --help
-Usage: cargo <COMMAND>
+cargo 
 
-Commands:
-  example  A simple to use, efficient, and full-featured Command Line Argument Parser
-  help     Print this message or the help of the given subcommand(s)
+USAGE:
+    cargo <SUBCOMMAND>
 
-Options:
-  -h, --help  Print help
+OPTIONS:
+    -h, --help    Print help information
+
+SUBCOMMANDS:
+    example    A simple to use, efficient, and full-featured Command Line Argument Parser
+    help       Print this message or the help of the given subcommand(s)
 
 $ cargo-example example --help
+cargo-example [..]
 A simple to use, efficient, and full-featured Command Line Argument Parser
 
-Usage: cargo example [OPTIONS]
+USAGE:
+    cargo example [OPTIONS]
 
-Options:
-      --manifest-path <PATH>  
-  -h, --help                  Print help
-  -V, --version               Print version
+OPTIONS:
+    -h, --help                    Print help information
+        --manifest-path <PATH>    
+    -V, --version                 Print version information
 
 ```
 

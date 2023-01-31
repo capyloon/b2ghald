@@ -1,19 +1,14 @@
-use crate::builder::OsStr;
-
-/// Operations to perform on argument values
-///
-/// These do not apply to [`ValueSource::DefaultValue`][crate::parser::ValueSource::DefaultValue]
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "unstable-v5", non_exhaustive)]
-pub enum ArgPredicate {
-    /// Is the argument present?
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub(crate) enum ArgPredicate<'help> {
     IsPresent,
-    /// Does the argument match the specified value?
-    Equals(OsStr),
+    Equals(&'help std::ffi::OsStr),
 }
 
-impl<S: Into<OsStr>> From<S> for ArgPredicate {
-    fn from(other: S) -> Self {
-        Self::Equals(other.into())
+impl<'help> From<Option<&'help std::ffi::OsStr>> for ArgPredicate<'help> {
+    fn from(other: Option<&'help std::ffi::OsStr>) -> Self {
+        match other {
+            Some(other) => Self::Equals(other),
+            None => Self::IsPresent,
+        }
     }
 }

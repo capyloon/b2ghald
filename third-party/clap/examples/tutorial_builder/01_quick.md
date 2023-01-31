@@ -1,21 +1,23 @@
 ```console
 $ 01_quick --help
+clap [..]
 A simple to use, efficient, and full-featured Command Line Argument Parser
 
-Usage: 01_quick[EXE] [OPTIONS] [name] [COMMAND]
+USAGE:
+    01_quick[EXE] [OPTIONS] [name] [SUBCOMMAND]
 
-Commands:
-  test  does testing things
-  help  Print this message or the help of the given subcommand(s)
+ARGS:
+    <name>    Optional name to operate on
 
-Arguments:
-  [name]  Optional name to operate on
+OPTIONS:
+    -c, --config <FILE>    Sets a custom config file
+    -d, --debug            Turn debugging information on
+    -h, --help             Print help information
+    -V, --version          Print version information
 
-Options:
-  -c, --config <FILE>  Sets a custom config file
-  -d, --debug...       Turn debugging information on
-  -h, --help           Print help
-  -V, --version        Print version
+SUBCOMMANDS:
+    help    Print this message or the help of the given subcommand(s)
+    test    does testing things
 
 ```
 

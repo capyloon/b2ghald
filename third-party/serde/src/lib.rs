@@ -52,15 +52,9 @@
 //! - [S-expressions], the textual representation of code and data used by the
 //!   Lisp language family.
 //! - [D-Bus]'s binary wire format.
-//! - [FlexBuffers], the schemaless cousin of Google's FlatBuffers zero-copy
-//!   serialization format.
-//! - [Bencode], a simple binary format used in the BitTorrent protocol.
-//! - [Token streams], for processing Rust procedural macro input.
-//!   *(deserialization only)*
+//! - [FlexBuffers], the schemaless cousin of Google's FlatBuffers zero-copy serialization format.
 //! - [DynamoDB Items], the format used by [rusoto_dynamodb] to transfer data to
 //!   and from DynamoDB.
-//! - [Hjson], a syntax extension to JSON designed around human reading and
-//!   editing. *(deserialization only)*
 //!
 //! [JSON]: https://github.com/serde-rs/json
 //! [Postcard]: https://github.com/jamesmunns/postcard
@@ -81,23 +75,20 @@
 //! [S-expressions]: https://github.com/rotty/lexpr-rs
 //! [D-Bus]: https://docs.rs/zvariant
 //! [FlexBuffers]: https://github.com/google/flatbuffers/tree/master/rust/flexbuffers
-//! [Bencode]: https://github.com/P3KI/bendy
-//! [Token streams]: https://github.com/oxidecomputer/serde_tokenstream
 //! [DynamoDB Items]: https://docs.rs/serde_dynamo
 //! [rusoto_dynamodb]: https://docs.rs/rusoto_dynamodb
-//! [Hjson]: https://github.com/Canop/deser-hjson
 
 ////////////////////////////////////////////////////////////////////////////////
 
 // Serde types in rustdoc of other crates get linked to here.
-#![doc(html_root_url = "https://docs.rs/serde/1.0.152")]
+#![doc(html_root_url = "https://docs.rs/serde/1.0.150")]
 // Support using Serde without the standard library!
 #![cfg_attr(not(feature = "std"), no_std)]
 // Unstable functionality only if the user asks for it. For tracking and
 // discussion of these features please refer to this issue:
 //
 //    https://github.com/serde-rs/serde/issues/812
-#![cfg_attr(feature = "unstable", feature(error_in_core, never_type))]
+#![cfg_attr(feature = "unstable", feature(never_type))]
 #![allow(unknown_lints, bare_trait_objects, deprecated)]
 #![cfg_attr(feature = "cargo-clippy", allow(renamed_and_removed_lints))]
 // Ignored clippy and clippy_pedantic lints
@@ -312,7 +303,7 @@ use self::__private as private;
 #[path = "de/seed.rs"]
 mod seed;
 
-#[cfg(not(any(feature = "std", feature = "unstable")))]
+#[cfg(not(feature = "std"))]
 mod std_error;
 
 // Re-export #[derive(Serialize, Deserialize)].

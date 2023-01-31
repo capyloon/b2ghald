@@ -10,7 +10,7 @@ fn main() {
     println!("PORT = {}", port);
 }
 
-fn cmd() -> clap::Command {
+fn cmd() -> clap::Command<'static> {
     command!() // requires `cargo` feature
         .arg(
             arg!(<PORT>)

@@ -1,20 +1,16 @@
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     /// What mode to run the program in
-    #[arg(value_enum)]
+    #[clap(arg_enum, value_parser)]
     mode: Mode,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum Mode {
-    /// Run swiftly
     Fast,
-    /// Crawl slowly but steadily
-    ///
-    /// This paragraph is ignored because there is no long help text for possible values.
     Slow,
 }
 

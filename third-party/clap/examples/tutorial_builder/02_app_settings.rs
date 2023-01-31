@@ -1,10 +1,11 @@
-use clap::{arg, command, ArgAction};
+use clap::{arg, command, AppSettings, ArgAction};
 
 fn main() {
     let matches = command!() // requires `cargo` feature
-        .next_line_help(true)
-        .arg(arg!(--two <VALUE>).required(true).action(ArgAction::Set))
-        .arg(arg!(--one <VALUE>).required(true).action(ArgAction::Set))
+        .global_setting(AppSettings::DeriveDisplayOrder)
+        .allow_negative_numbers(true)
+        .arg(arg!(--two <VALUE>).action(ArgAction::Set))
+        .arg(arg!(--one <VALUE>).action(ArgAction::Set))
         .get_matches();
 
     println!(

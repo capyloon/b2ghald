@@ -1,33 +1,33 @@
-use clap::error::ErrorKind;
-use clap::{CommandFactory, Parser};
+use clap::{CommandFactory, ErrorKind, Parser};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     /// set version manually
-    #[arg(long, value_name = "VER")]
+    #[clap(long, value_name = "VER", value_parser)]
     set_ver: Option<String>,
 
     /// auto inc major
-    #[arg(long)]
+    #[clap(long, action)]
     major: bool,
 
     /// auto inc minor
-    #[arg(long)]
+    #[clap(long, action)]
     minor: bool,
 
     /// auto inc patch
-    #[arg(long)]
+    #[clap(long, action)]
     patch: bool,
 
     /// some regular input
+    #[clap(value_parser)]
     input_file: Option<String>,
 
     /// some special input argument
-    #[arg(long)]
+    #[clap(long, value_parser)]
     spec_in: Option<String>,
 
-    #[arg(short)]
+    #[clap(short, value_parser)]
     config: Option<String>,
 }
 
@@ -73,6 +73,8 @@ fn main() {
 
     // Check for usage of -c
     if let Some(config) = cli.config.as_deref() {
+        // todo: remove `#[allow(clippy::or_fun_call)]` lint when MSRV is bumped.
+        #[allow(clippy::or_fun_call)]
         let input = cli
             .input_file
             .as_deref()
