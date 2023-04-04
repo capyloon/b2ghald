@@ -1279,13 +1279,15 @@ pub const PTHREAD_MUTEX_NORMAL: ::c_int = 3;
 pub const PTHREAD_MUTEX_STRICT_NP: ::c_int = 4;
 pub const PTHREAD_MUTEX_DEFAULT: ::c_int = PTHREAD_MUTEX_STRICT_NP;
 
-pub const EVFILT_AIO: i16 = -3;
-pub const EVFILT_PROC: i16 = -5;
 pub const EVFILT_READ: i16 = -1;
+pub const EVFILT_WRITE: i16 = -2;
+pub const EVFILT_AIO: i16 = -3;
+pub const EVFILT_VNODE: i16 = -4;
+pub const EVFILT_PROC: i16 = -5;
 pub const EVFILT_SIGNAL: i16 = -6;
 pub const EVFILT_TIMER: i16 = -7;
-pub const EVFILT_VNODE: i16 = -4;
-pub const EVFILT_WRITE: i16 = -2;
+pub const EVFILT_DEVICE: i16 = -8;
+pub const EVFILT_EXCEPT: i16 = -9;
 
 pub const EV_ADD: u16 = 0x1;
 pub const EV_DELETE: u16 = 0x2;
@@ -1304,6 +1306,7 @@ pub const EV_SYSFLAGS: u16 = 0xf800;
 
 pub const NOTE_LOWAT: u32 = 0x00000001;
 pub const NOTE_EOF: u32 = 0x00000002;
+pub const NOTE_OOB: u32 = 0x00000004;
 pub const NOTE_DELETE: u32 = 0x00000001;
 pub const NOTE_WRITE: u32 = 0x00000002;
 pub const NOTE_EXTEND: u32 = 0x00000004;
@@ -1320,6 +1323,7 @@ pub const NOTE_PCTRLMASK: u32 = 0xf0000000;
 pub const NOTE_TRACK: u32 = 0x00000001;
 pub const NOTE_TRACKERR: u32 = 0x00000002;
 pub const NOTE_CHILD: u32 = 0x00000004;
+pub const NOTE_CHANGE: u32 = 0x00000001;
 
 pub const TMP_MAX: ::c_uint = 0x7fffffff;
 
@@ -1659,6 +1663,12 @@ pub const MNT_DOOMED: ::c_int = 0x08000000;
 pub const MNT_WAIT: ::c_int = 1;
 pub const MNT_NOWAIT: ::c_int = 2;
 pub const MNT_LAZY: ::c_int = 3;
+
+// sys/_time.h
+pub const CLOCK_PROCESS_CPUTIME_ID: ::clockid_t = 2;
+pub const CLOCK_THREAD_CPUTIME_ID: ::clockid_t = 4;
+pub const CLOCK_UPTIME: ::clockid_t = 5;
+pub const CLOCK_BOOTTIME: ::clockid_t = 6;
 
 pub const LC_COLLATE_MASK: ::c_int = 1 << ::LC_COLLATE;
 pub const LC_CTYPE_MASK: ::c_int = 1 << ::LC_CTYPE;

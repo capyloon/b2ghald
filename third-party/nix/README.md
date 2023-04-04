@@ -24,8 +24,8 @@ call:
 // libc api (unsafe, requires handling return code/errno)
 pub unsafe extern fn gethostname(name: *mut c_char, len: size_t) -> c_int;
 
-// nix api (returns a nix::Result<CStr>)
-pub fn gethostname<'a>(buffer: &'a mut [u8]) -> Result<&'a CStr>;
+// nix api (returns a nix::Result<OsString>)
+pub fn gethostname() -> Result<OsString>;
 ```
 
 ## Supported Platforms
@@ -47,6 +47,7 @@ limitations. Support for platforms is split into three tiers:
 The following targets are supported by `nix`:
 
 Tier 1:
+  * aarch64-apple-darwin
   * aarch64-unknown-linux-gnu
   * arm-unknown-linux-gnueabi
   * armv7-unknown-linux-gnueabihf
@@ -58,13 +59,11 @@ Tier 1:
   * mips64el-unknown-linux-gnuabi64
   * mipsel-unknown-linux-gnu
   * powerpc64le-unknown-linux-gnu
-  * x86_64-apple-darwin
   * x86_64-unknown-freebsd
   * x86_64-unknown-linux-gnu
   * x86_64-unknown-linux-musl
 
 Tier 2:
-  * aarch64-apple-darwin
   * aarch64-apple-ios
   * aarch64-linux-android
   * arm-linux-androideabi
@@ -75,6 +74,7 @@ Tier 2:
   * s390x-unknown-linux-gnu
   * x86_64-apple-ios
   * x86_64-linux-android
+  * x86_64-apple-darwin
   * x86_64-unknown-illumos
   * x86_64-unknown-netbsd
 
@@ -82,13 +82,14 @@ Tier 3:
   * armv7-unknown-linux-uclibceabihf
   * x86_64-fuchsia
   * x86_64-unknown-dragonfly
+  * x86_64-unknown-haiku
   * x86_64-unknown-linux-gnux32
   * x86_64-unknown-openbsd
   * x86_64-unknown-redox
 
 ## Minimum Supported Rust Version (MSRV)
 
-nix is supported on Rust 1.46.0 and higher.  Its MSRV will not be
+nix is supported on Rust 1.56.1 and higher.  Its MSRV will not be
 changed in the future without bumping the major or minor version.
 
 ## Contributing
