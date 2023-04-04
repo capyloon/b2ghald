@@ -1,13 +1,10 @@
 use nix::sys::time::{TimeSpec, TimeValLike};
-use nix::sys::timerfd::{
-    ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags,
-};
+use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
 use std::time::Instant;
 
 #[test]
 pub fn test_timerfd_oneshot() {
-    let timer =
-        TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
+    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
 
     let before = Instant::now();
 
@@ -26,16 +23,12 @@ pub fn test_timerfd_oneshot() {
 
 #[test]
 pub fn test_timerfd_interval() {
-    let timer =
-        TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
+    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
 
     let before = Instant::now();
     timer
         .set(
-            Expiration::IntervalDelayed(
-                TimeSpec::seconds(1),
-                TimeSpec::seconds(2),
-            ),
+            Expiration::IntervalDelayed(TimeSpec::seconds(1), TimeSpec::seconds(2)),
             TimerSetTimeFlags::empty(),
         )
         .unwrap();
@@ -53,8 +46,7 @@ pub fn test_timerfd_interval() {
 
 #[test]
 pub fn test_timerfd_unset() {
-    let timer =
-        TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
+    let timer = TimerFd::new(ClockId::CLOCK_MONOTONIC, TimerFlags::empty()).unwrap();
 
     timer
         .set(

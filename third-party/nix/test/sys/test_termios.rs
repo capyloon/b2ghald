@@ -1,11 +1,11 @@
 use std::os::unix::prelude::*;
 use tempfile::tempfile;
 
-use nix::errno::Errno;
 use nix::fcntl;
+use nix::errno::Errno;
 use nix::pty::openpty;
-use nix::sys::termios::{self, tcgetattr, LocalFlags, OutputFlags};
-use nix::unistd::{close, read, write};
+use nix::sys::termios::{self, LocalFlags, OutputFlags, tcgetattr};
+use nix::unistd::{read, write, close};
 
 /// Helper function analogous to `std::io::Write::write_all`, but for `RawFd`s
 fn write_all(f: RawFd, buf: &[u8]) {
@@ -22,7 +22,7 @@ fn test_tcgetattr_pty() {
     let _m = crate::PTSNAME_MTX.lock();
 
     let pty = openpty(None, None).expect("openpty failed");
-    termios::tcgetattr(pty.slave).unwrap();
+    assert!(termios::tcgetattr(pty.slave).is_ok());
     close(pty.master).expect("closing the master failed");
     close(pty.slave).expect("closing the slave failed");
 }
@@ -31,16 +31,15 @@ fn test_tcgetattr_pty() {
 #[test]
 fn test_tcgetattr_enotty() {
     let file = tempfile().unwrap();
-    assert_eq!(
-        termios::tcgetattr(file.as_raw_fd()).err(),
-        Some(Errno::ENOTTY)
-    );
+    assert_eq!(termios::tcgetattr(file.as_raw_fd()).err(),
+               Some(Errno::ENOTTY));
 }
 
 // Test tcgetattr on an invalid file descriptor
 #[test]
 fn test_tcgetattr_ebadf() {
-    assert_eq!(termios::tcgetattr(-1).err(), Some(Errno::EBADF));
+    assert_eq!(termios::tcgetattr(-1).err(),
+               Some(Errno::EBADF));
 }
 
 // Test modifying output flags
@@ -61,15 +60,11 @@ fn test_output_flags() {
     };
 
     // Make sure postprocessing '\r' isn't specified by default or this test is useless.
-    assert!(!termios
-        .output_flags
-        .contains(OutputFlags::OPOST | OutputFlags::OCRNL));
+    assert!(!termios.output_flags.contains(OutputFlags::OPOST | OutputFlags::OCRNL));
 
     // Specify that '\r' characters should be transformed to '\n'
     // OPOST is specified to enable post-processing
-    termios
-        .output_flags
-        .insert(OutputFlags::OPOST | OutputFlags::OCRNL);
+    termios.output_flags.insert(OutputFlags::OPOST | OutputFlags::OCRNL);
 
     // Open a pty
     let pty = openpty(None, &termios).unwrap();
@@ -119,8 +114,7 @@ fn test_local_flags() {
 
     // Set the master is in nonblocking mode or reading will never return.
     let flags = fcntl::fcntl(pty.master, fcntl::F_GETFL).unwrap();
-    let new_flags =
-        fcntl::OFlag::from_bits_truncate(flags) | fcntl::OFlag::O_NONBLOCK;
+    let new_flags = fcntl::OFlag::from_bits_truncate(flags) | fcntl::OFlag::O_NONBLOCK;
     fcntl::fcntl(pty.master, fcntl::F_SETFL(new_flags)).unwrap();
 
     // Write into the master

@@ -70,10 +70,8 @@ pub struct Timer(libc::timer_t);
 impl Timer {
     /// Creates a new timer based on the clock defined by `clockid`. The details
     /// of the signal and its handler are defined by the passed `sigevent`.
-    #[doc(alias("timer_create"))]
     pub fn new(clockid: ClockId, mut sigevent: SigEvent) -> Result<Self> {
-        let mut timer_id: mem::MaybeUninit<libc::timer_t> =
-            mem::MaybeUninit::uninit();
+        let mut timer_id: mem::MaybeUninit<libc::timer_t> = mem::MaybeUninit::uninit();
         Errno::result(unsafe {
             libc::timer_create(
                 clockid.as_raw(),
@@ -124,12 +122,7 @@ impl Timer {
     ///
     /// Note: Setting a one shot alarm with a 0s TimeSpec disable the alarm
     /// altogether.
-    #[doc(alias("timer_settime"))]
-    pub fn set(
-        &mut self,
-        expiration: Expiration,
-        flags: TimerSetTimeFlags,
-    ) -> Result<()> {
+    pub fn set(&mut self, expiration: Expiration, flags: TimerSetTimeFlags) -> Result<()> {
         let timerspec: TimerSpec = expiration.into();
         Errno::result(unsafe {
             libc::timer_settime(
@@ -143,13 +136,9 @@ impl Timer {
     }
 
     /// Get the parameters for the alarm currently set, if any.
-    #[doc(alias("timer_gettime"))]
     pub fn get(&self) -> Result<Option<Expiration>> {
         let mut timerspec = TimerSpec::none();
-        Errno::result(unsafe {
-            libc::timer_gettime(self.0, timerspec.as_mut())
-        })
-        .map(|_| {
+        Errno::result(unsafe { libc::timer_gettime(self.0, timerspec.as_mut()) }).map(|_| {
             if timerspec.as_ref().it_interval.tv_sec == 0
                 && timerspec.as_ref().it_interval.tv_nsec == 0
                 && timerspec.as_ref().it_value.tv_sec == 0
@@ -169,7 +158,6 @@ impl Timer {
     /// 'overrun'. This function returns how many times that has happened to
     /// this timer, up to `libc::DELAYTIMER_MAX`. If more than the maximum
     /// number of overruns have happened the return is capped to the maximum.
-    #[doc(alias("timer_getoverrun"))]
     pub fn overruns(&self) -> i32 {
         unsafe { libc::timer_getoverrun(self.0) }
     }

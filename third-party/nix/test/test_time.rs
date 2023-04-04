@@ -11,12 +11,12 @@ use nix::time::{clock_gettime, ClockId};
 #[cfg(not(target_os = "redox"))]
 #[test]
 pub fn test_clock_getres() {
-    nix::time::clock_getres(ClockId::CLOCK_REALTIME).expect("assertion failed");
+    assert!(nix::time::clock_getres(ClockId::CLOCK_REALTIME).is_ok());
 }
 
 #[test]
 pub fn test_clock_gettime() {
-    clock_gettime(ClockId::CLOCK_REALTIME).expect("assertion failed");
+    assert!(clock_gettime(ClockId::CLOCK_REALTIME).is_ok());
 }
 
 #[cfg(any(
@@ -29,18 +29,18 @@ pub fn test_clock_gettime() {
 #[test]
 pub fn test_clock_getcpuclockid() {
     let clock_id = clock_getcpuclockid(nix::unistd::Pid::this()).unwrap();
-    clock_gettime(clock_id).unwrap();
+    assert!(clock_gettime(clock_id).is_ok());
 }
 
 #[cfg(not(target_os = "redox"))]
 #[test]
 pub fn test_clock_id_res() {
-    ClockId::CLOCK_REALTIME.res().unwrap();
+    assert!(ClockId::CLOCK_REALTIME.res().is_ok());
 }
 
 #[test]
 pub fn test_clock_id_now() {
-    ClockId::CLOCK_REALTIME.now().unwrap();
+    assert!(ClockId::CLOCK_REALTIME.now().is_ok());
 }
 
 #[cfg(any(
@@ -52,8 +52,7 @@ pub fn test_clock_id_now() {
 ))]
 #[test]
 pub fn test_clock_id_pid_cpu_clock_id() {
-    ClockId::pid_cpu_clock_id(nix::unistd::Pid::this())
+    assert!(ClockId::pid_cpu_clock_id(nix::unistd::Pid::this())
         .map(ClockId::now)
-        .unwrap()
-        .unwrap();
+        .is_ok());
 }

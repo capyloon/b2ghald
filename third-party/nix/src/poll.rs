@@ -1,8 +1,8 @@
 //! Wait for events to trigger on specific file descriptors
 use std::os::unix::io::{AsRawFd, RawFd};
 
-use crate::errno::Errno;
 use crate::Result;
+use crate::errno::Errno;
 
 /// This is a wrapper around `libc::pollfd`.
 ///
@@ -35,26 +35,6 @@ impl PollFd {
     /// `None` if the kernel provides status flags that Nix does not know about.
     pub fn revents(self) -> Option<PollFlags> {
         PollFlags::from_bits(self.pollfd.revents)
-    }
-
-    /// Returns if any of the events of interest occured in the last call to `poll` or `ppoll`. Will
-    /// only return `None` if the kernel provides status flags that Nix does not know about.
-    ///
-    /// Equivalent to `x.revents()? != PollFlags::empty()`.
-    ///
-    /// This is marginally more efficient than [`PollFd::all`].
-    pub fn any(self) -> Option<bool> {
-        Some(self.revents()? != PollFlags::empty())
-    }
-
-    /// Returns if all the events of interest occured in the last call to `poll` or `ppoll`. Will
-    /// only return `None` if the kernel provides status flags that Nix does not know about.
-    ///
-    /// Equivalent to `x.revents()? & x.events() == x.events()`.
-    ///
-    /// This is marginally less efficient than [`PollFd::any`].
-    pub fn all(self) -> Option<bool> {
-        Some(self.revents()? & self.events() == self.events())
     }
 
     /// The events of interest for this `PollFd`.
@@ -154,11 +134,9 @@ libc_bitflags! {
 /// ready.
 pub fn poll(fds: &mut [PollFd], timeout: libc::c_int) -> Result<libc::c_int> {
     let res = unsafe {
-        libc::poll(
-            fds.as_mut_ptr() as *mut libc::pollfd,
-            fds.len() as libc::nfds_t,
-            timeout,
-        )
+        libc::poll(fds.as_mut_ptr() as *mut libc::pollfd,
+                   fds.len() as libc::nfds_t,
+                   timeout)
     };
 
     Errno::result(res)
@@ -173,24 +151,20 @@ feature! {
 /// `ppoll` behaves like `poll`, but let you specify what signals may interrupt it
 /// with the `sigmask` argument. If you want `ppoll` to block indefinitely,
 /// specify `None` as `timeout` (it is like `timeout = -1` for `poll`).
-/// If `sigmask` is `None`, then no signal mask manipulation is performed,
-/// so in that case `ppoll` differs from `poll` only in the precision of the
-/// timeout argument.
 ///
 #[cfg(any(target_os = "android", target_os = "dragonfly", target_os = "freebsd", target_os = "linux"))]
 pub fn ppoll(
     fds: &mut [PollFd],
     timeout: Option<crate::sys::time::TimeSpec>,
-    sigmask: Option<crate::sys::signal::SigSet>
+    sigmask: crate::sys::signal::SigSet
     ) -> Result<libc::c_int>
 {
     let timeout = timeout.as_ref().map_or(core::ptr::null(), |r| r.as_ref());
-    let sigmask = sigmask.as_ref().map_or(core::ptr::null(), |r| r.as_ref());
     let res = unsafe {
         libc::ppoll(fds.as_mut_ptr() as *mut libc::pollfd,
                     fds.len() as libc::nfds_t,
                     timeout,
-                    sigmask)
+                    sigmask.as_ref())
     };
     Errno::result(res)
 }

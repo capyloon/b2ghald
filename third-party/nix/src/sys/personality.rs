@@ -1,6 +1,6 @@
 //! Process execution domains
-use crate::errno::Errno;
 use crate::Result;
+use crate::errno::Errno;
 
 use libc::{self, c_int, c_ulong};
 
@@ -62,7 +62,9 @@ libc_bitflags! {
 /// assert!(!pers.contains(Persona::WHOLE_SECONDS));
 /// ```
 pub fn get() -> Result<Persona> {
-    let res = unsafe { libc::personality(0xFFFFFFFF) };
+    let res = unsafe {
+        libc::personality(0xFFFFFFFF)
+    };
 
     Errno::result(res).map(Persona::from_bits_truncate)
 }
@@ -84,10 +86,12 @@ pub fn get() -> Result<Persona> {
 /// # use nix::sys::personality::{self, Persona};
 /// let mut pers = personality::get().unwrap();
 /// assert!(!pers.contains(Persona::ADDR_NO_RANDOMIZE));
-/// personality::set(pers | Persona::ADDR_NO_RANDOMIZE).unwrap();
+/// personality::set(pers | Persona::ADDR_NO_RANDOMIZE);
 /// ```
 pub fn set(persona: Persona) -> Result<Persona> {
-    let res = unsafe { libc::personality(persona.bits() as c_ulong) };
+    let res = unsafe {
+        libc::personality(persona.bits() as c_ulong)
+    };
 
     Errno::result(res).map(Persona::from_bits_truncate)
 }

@@ -62,8 +62,7 @@ fn test_sendfile64_linux() {
 #[test]
 fn test_sendfile_freebsd() {
     // Declare the content
-    let header_strings =
-        vec!["HTTP/1.1 200 OK\n", "Content-Type: text/plain\n", "\n"];
+    let header_strings = vec!["HTTP/1.1 200 OK\n", "Content-Type: text/plain\n", "\n"];
     let body = "Xabcdef123456";
     let body_offset = 1;
     let trailer_strings = vec!["\n", "Served by Make Believe\n"];
@@ -73,10 +72,8 @@ fn test_sendfile_freebsd() {
     tmp.write_all(body.as_bytes()).unwrap();
 
     // Prepare headers and trailers for sendfile
-    let headers: Vec<&[u8]> =
-        header_strings.iter().map(|s| s.as_bytes()).collect();
-    let trailers: Vec<&[u8]> =
-        trailer_strings.iter().map(|s| s.as_bytes()).collect();
+    let headers: Vec<&[u8]> = header_strings.iter().map(|s| s.as_bytes()).collect();
+    let trailers: Vec<&[u8]> = trailer_strings.iter().map(|s| s.as_bytes()).collect();
 
     // Prepare socket pair
     let (mut rd, wr) = UnixStream::pair().unwrap();
@@ -96,9 +93,8 @@ fn test_sendfile_freebsd() {
     wr.shutdown(Shutdown::Both).unwrap();
 
     // Prepare the expected result
-    let expected_string = header_strings.concat()
-        + &body[body_offset..]
-        + &trailer_strings.concat();
+    let expected_string =
+        header_strings.concat() + &body[body_offset..] + &trailer_strings.concat();
 
     // Verify the message that was sent
     assert_eq!(bytes_written as usize, expected_string.as_bytes().len());
@@ -113,8 +109,7 @@ fn test_sendfile_freebsd() {
 #[test]
 fn test_sendfile_dragonfly() {
     // Declare the content
-    let header_strings =
-        vec!["HTTP/1.1 200 OK\n", "Content-Type: text/plain\n", "\n"];
+    let header_strings = vec!["HTTP/1.1 200 OK\n", "Content-Type: text/plain\n", "\n"];
     let body = "Xabcdef123456";
     let body_offset = 1;
     let trailer_strings = vec!["\n", "Served by Make Believe\n"];
@@ -124,10 +119,8 @@ fn test_sendfile_dragonfly() {
     tmp.write_all(body.as_bytes()).unwrap();
 
     // Prepare headers and trailers for sendfile
-    let headers: Vec<&[u8]> =
-        header_strings.iter().map(|s| s.as_bytes()).collect();
-    let trailers: Vec<&[u8]> =
-        trailer_strings.iter().map(|s| s.as_bytes()).collect();
+    let headers: Vec<&[u8]> = header_strings.iter().map(|s| s.as_bytes()).collect();
+    let trailers: Vec<&[u8]> = trailer_strings.iter().map(|s| s.as_bytes()).collect();
 
     // Prepare socket pair
     let (mut rd, wr) = UnixStream::pair().unwrap();
@@ -145,9 +138,8 @@ fn test_sendfile_dragonfly() {
     wr.shutdown(Shutdown::Both).unwrap();
 
     // Prepare the expected result
-    let expected_string = header_strings.concat()
-        + &body[body_offset..]
-        + &trailer_strings.concat();
+    let expected_string =
+        header_strings.concat() + &body[body_offset..] + &trailer_strings.concat();
 
     // Verify the message that was sent
     assert_eq!(bytes_written as usize, expected_string.as_bytes().len());
@@ -162,8 +154,7 @@ fn test_sendfile_dragonfly() {
 #[test]
 fn test_sendfile_darwin() {
     // Declare the content
-    let header_strings =
-        vec!["HTTP/1.1 200 OK\n", "Content-Type: text/plain\n", "\n"];
+    let header_strings = vec!["HTTP/1.1 200 OK\n", "Content-Type: text/plain\n", "\n"];
     let body = "Xabcdef123456";
     let body_offset = 1;
     let trailer_strings = vec!["\n", "Served by Make Believe\n"];
@@ -173,10 +164,8 @@ fn test_sendfile_darwin() {
     tmp.write_all(body.as_bytes()).unwrap();
 
     // Prepare headers and trailers for sendfile
-    let headers: Vec<&[u8]> =
-        header_strings.iter().map(|s| s.as_bytes()).collect();
-    let trailers: Vec<&[u8]> =
-        trailer_strings.iter().map(|s| s.as_bytes()).collect();
+    let headers: Vec<&[u8]> = header_strings.iter().map(|s| s.as_bytes()).collect();
+    let trailers: Vec<&[u8]> = trailer_strings.iter().map(|s| s.as_bytes()).collect();
 
     // Prepare socket pair
     let (mut rd, wr) = UnixStream::pair().unwrap();
@@ -194,9 +183,8 @@ fn test_sendfile_darwin() {
     wr.shutdown(Shutdown::Both).unwrap();
 
     // Prepare the expected result
-    let expected_string = header_strings.concat()
-        + &body[body_offset..]
-        + &trailer_strings.concat();
+    let expected_string =
+        header_strings.concat() + &body[body_offset..] + &trailer_strings.concat();
 
     // Verify the message that was sent
     assert_eq!(bytes_written as usize, expected_string.as_bytes().len());

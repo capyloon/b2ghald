@@ -52,20 +52,20 @@
 #![deny(missing_copy_implementations)]
 #![deny(missing_debug_implementations)]
 #![warn(missing_docs)]
+
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![deny(clippy::cast_ptr_alignment)]
 
 // Re-exported external crates
 pub use libc;
 
 // Private internal modules
-#[macro_use]
-mod macros;
+#[macro_use] mod macros;
 
 // Public crates
 #[cfg(not(target_os = "redox"))]
 feature! {
     #![feature = "dir"]
+    #[allow(missing_docs)]
     pub mod dir;
 }
 feature! {
@@ -100,24 +100,28 @@ feature! {
     #[deny(missing_docs)]
     pub mod net;
 }
-#[cfg(any(target_os = "android", target_os = "linux"))]
+#[cfg(any(target_os = "android",
+          target_os = "linux"))]
 feature! {
     #![feature = "kmod"]
     #[allow(missing_docs)]
     pub mod kmod;
 }
+#[cfg(any(target_os = "android",
+          target_os = "freebsd",
+          target_os = "linux"))]
 feature! {
     #![feature = "mount"]
     pub mod mount;
 }
-#[cfg(any(
-    target_os = "dragonfly",
-    target_os = "freebsd",
-    target_os = "linux",
-    target_os = "netbsd"
-))]
+#[cfg(any(target_os = "dragonfly",
+          target_os = "freebsd",
+          target_os = "fushsia",
+          target_os = "linux",
+          target_os = "netbsd"))]
 feature! {
     #![feature = "mqueue"]
+    #[allow(missing_docs)]
     pub mod mqueue;
 }
 feature! {
@@ -142,10 +146,9 @@ feature! {
 }
 // This can be implemented for other platforms as soon as libc
 // provides bindings for them.
-#[cfg(all(
-    target_os = "linux",
-    any(target_arch = "s390x", target_arch = "x86", target_arch = "x86_64")
-))]
+#[cfg(all(target_os = "linux",
+          any(target_arch = "s390x", target_arch = "x86",
+              target_arch = "x86_64")))]
 feature! {
     #![feature = "ucontext"]
     #[allow(missing_docs)]
@@ -189,8 +192,7 @@ pub trait NixPath {
     ///
     /// Mostly used internally by Nix.
     fn with_nix_path<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&CStr) -> T;
+        where F: FnOnce(&CStr) -> T;
 }
 
 impl NixPath for str {
@@ -203,11 +205,9 @@ impl NixPath for str {
     }
 
     fn with_nix_path<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&CStr) -> T,
-    {
-        OsStr::new(self).with_nix_path(f)
-    }
+        where F: FnOnce(&CStr) -> T {
+            OsStr::new(self).with_nix_path(f)
+        }
 }
 
 impl NixPath for OsStr {
@@ -220,11 +220,9 @@ impl NixPath for OsStr {
     }
 
     fn with_nix_path<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&CStr) -> T,
-    {
-        self.as_bytes().with_nix_path(f)
-    }
+        where F: FnOnce(&CStr) -> T {
+            self.as_bytes().with_nix_path(f)
+        }
 }
 
 impl NixPath for CStr {
@@ -277,9 +275,7 @@ impl NixPath for [u8] {
             buf_ptr.add(self.len()).write(0);
         }
 
-        match CStr::from_bytes_with_nul(unsafe {
-            slice::from_raw_parts(buf_ptr, self.len() + 1)
-        }) {
+        match CStr::from_bytes_with_nul(unsafe { slice::from_raw_parts(buf_ptr, self.len() + 1) }) {
             Ok(s) => Ok(f(s)),
             Err(_) => Err(Errno::EINVAL),
         }
@@ -307,10 +303,7 @@ impl NixPath for Path {
         NixPath::len(self.as_os_str())
     }
 
-    fn with_nix_path<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&CStr) -> T,
-    {
+    fn with_nix_path<T, F>(&self, f: F) -> Result<T> where F: FnOnce(&CStr) -> T {
         self.as_os_str().with_nix_path(f)
     }
 }
@@ -324,10 +317,7 @@ impl NixPath for PathBuf {
         NixPath::len(self.as_os_str())
     }
 
-    fn with_nix_path<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&CStr) -> T,
-    {
+    fn with_nix_path<T, F>(&self, f: F) -> Result<T> where F: FnOnce(&CStr) -> T {
         self.as_os_str().with_nix_path(f)
     }
 }
