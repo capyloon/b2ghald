@@ -685,6 +685,9 @@ pub const EOF: ::c_int = -1;
 pub const SEEK_SET: ::c_int = 0;
 pub const SEEK_CUR: ::c_int = 1;
 pub const SEEK_END: ::c_int = 2;
+pub const L_SET: ::c_int = SEEK_SET;
+pub const L_INCR: ::c_int = SEEK_CUR;
+pub const L_XTND: ::c_int = SEEK_END;
 pub const _IOFBF: ::c_int = 0;
 pub const _IONBF: ::c_int = 2;
 pub const _IOLBF: ::c_int = 1;
@@ -738,6 +741,7 @@ pub const RLIMIT_AS: ::c_int = 6;
 pub const RLIM_INFINITY: ::rlim_t = 0xffffffff;
 // Haiku specific
 pub const RLIMIT_NOVMON: ::c_int = 7;
+#[deprecated(since = "0.2.64", note = "Not stable across OS versions")]
 pub const RLIM_NLIMITS: ::c_int = 8;
 
 pub const RUSAGE_SELF: ::c_int = 0;
@@ -976,7 +980,7 @@ pub const MADV_WILLNEED: ::c_int = 4;
 pub const MADV_DONTNEED: ::c_int = 5;
 pub const MADV_FREE: ::c_int = 6;
 
-// https://github.com/haiku/haiku/blob/master/headers/posix/net/if.h#L80
+// https://github.com/haiku/haiku/blob/HEAD/headers/posix/net/if.h#L80
 pub const IFF_UP: ::c_int = 0x0001;
 pub const IFF_BROADCAST: ::c_int = 0x0002; // valid broadcast address
 pub const IFF_LOOPBACK: ::c_int = 0x0008;
@@ -1501,7 +1505,7 @@ f! {
             as ::c_uint
     }
 
-    pub fn CMSG_LEN(length: ::c_uint) -> ::c_uint {
+    pub {const} fn CMSG_LEN(length: ::c_uint) -> ::c_uint {
         CMSG_ALIGN(::mem::size_of::<cmsghdr>()) as ::c_uint + length
     }
 
@@ -1676,6 +1680,7 @@ extern "C" {
         attr: *const ::pthread_attr_t,
         guardsize: *mut ::size_t,
     ) -> ::c_int;
+    pub fn pthread_attr_setguardsize(attr: *mut ::pthread_attr_t, guardsize: ::size_t) -> ::c_int;
     pub fn pthread_attr_getstack(
         attr: *const ::pthread_attr_t,
         stackaddr: *mut *mut ::c_void,
@@ -2052,7 +2057,7 @@ extern "C" {
     ) -> ::c_int;
 }
 
-#[link(name = "unix")]
+#[link(name = "gnu")]
 extern "C" {
     pub fn memmem(
         source: *const ::c_void,
@@ -2060,6 +2065,14 @@ extern "C" {
         search: *const ::c_void,
         searchLength: ::size_t,
     ) -> *mut ::c_void;
+
+    pub fn pthread_getattr_np(thread: ::pthread_t, attr: *mut ::pthread_attr_t) -> ::c_int;
+    pub fn pthread_getname_np(
+        thread: ::pthread_t,
+        buffer: *mut ::c_char,
+        length: ::size_t,
+    ) -> ::c_int;
+    pub fn pthread_setname_np(thread: ::pthread_t, name: *const ::c_char) -> ::c_int;
 }
 
 cfg_if! {

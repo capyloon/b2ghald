@@ -341,6 +341,7 @@ pub const SOCK_DGRAM: ::c_int = 2;
 
 pub const MCL_CURRENT: ::c_int = 0x0001;
 pub const MCL_FUTURE: ::c_int = 0x0002;
+pub const MCL_ONFAULT: ::c_int = 0x0004;
 
 pub const POLLWRNORM: ::c_short = 0x100;
 pub const POLLWRBAND: ::c_short = 0x200;
@@ -837,6 +838,7 @@ pub const SYS_pkey_alloc: ::c_long = 395;
 pub const SYS_pkey_free: ::c_long = 396;
 pub const SYS_statx: ::c_long = 397;
 pub const SYS_rseq: ::c_long = 398;
+pub const SYS_kexec_file_load: ::c_long = 401;
 pub const SYS_pidfd_send_signal: ::c_long = 424;
 pub const SYS_io_uring_setup: ::c_long = 425;
 pub const SYS_io_uring_enter: ::c_long = 426;
