@@ -11,18 +11,18 @@ function setup_xcompile_envs() {
     case "$TARGET_ARCH" in
     armv7-linux-androideabi)
         TARGET_TRIPLE=armv7-linux-androideabi
-	TARGET_INCLUDE=arm-linux-androideabi
+        TARGET_INCLUDE=arm-linux-androideabi
         TOOLCHAIN_PREFIX=armv7a-linux-androideabi${ANDROID_API}
         ;;
     aarch64-linux-android)
         TARGET_TRIPLE=aarch64-linux-android
-	TARGET_INCLUDE=${TARGET_TRIPLE}
+        TARGET_INCLUDE=${TARGET_TRIPLE}
         TOOLCHAIN_PREFIX=${TARGET_TRIPLE}${ANDROID_API}
         LIB_SUFFIX=64
         ;;
     x86_64-linux-android)
         TARGET_TRIPLE=x86_64-linux-android
-	TARGET_INCLUDE=${TARGET_TRIPLE}
+        TARGET_INCLUDE=${TARGET_TRIPLE}
         TOOLCHAIN_PREFIX=${TARGET_TRIPLE}${ANDROID_API}
         LIB_SUFFIX=64
         ;;
